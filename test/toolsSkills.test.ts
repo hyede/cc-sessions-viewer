@@ -4,7 +4,7 @@
 // 转一手、agent 那层走两跳，另一套 store 里躺着同名的第二份，外加一条死链。
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { SkillEntry, SkillRef, SkillScan, StoreCandidate } from '../src/types'
+import type { RiskFinding, SkillEntry, SkillRef, SkillScan, StoreCandidate } from '../src/types'
 import {
   BADGE_ORDER,
   agentsOf,
@@ -14,6 +14,7 @@ import {
   removableLink,
   emptyFilter,
   filterSkills,
+  groupFindings,
   healthTip,
   isUnhealthy,
   mainStoreOptions,
@@ -977,5 +978,57 @@ describe('面板状态', () => {
     skillFilter.value = { query: 'x', agent: 'codex', badge: 'broken', minRisk: 'high' }
     resetSkillFilter()
     expect(skillFilter.value).toEqual(emptyFilter())
+  })
+})
+
+describe('风险命中折叠', () => {
+  function f(over: Partial<RiskFinding> = {}): RiskFinding {
+    return {
+      rule: 'subprocess-spawn',
+      baseLevel: 'low',
+      level: 'low',
+      context: 'executable',
+      file: 'bin/cli.mjs',
+      line: 1,
+      excerpt: "spawnSync('git', ['status'])",
+      ...over,
+    }
+  }
+
+  it('同规则同等级并成一组，组内保留后端给的顺序', () => {
+    // 这就是 archify 那 101 行的解法：一条规则一行，点开才看具体位置。
+    const got = groupFindings([
+      f({ file: 'bin/a.mjs', line: 3 }),
+      f({ file: 'bin/b.mjs', line: 9 }),
+      f({ file: 'bin/c.mjs', line: 1 }),
+    ])
+    expect(got).toHaveLength(1)
+    expect(got[0].key).toBe('low:subprocess-spawn')
+    expect(got[0].findings.map((x) => x.file)).toEqual(['bin/a.mjs', 'bin/b.mjs', 'bin/c.mjs'])
+  })
+
+  it('同一条规则降级到不同等级时分成两组', () => {
+    // 一条规则既命中 bin/ 又命中 test/：等级不同，用户要分开看。
+    const got = groupFindings([
+      f({ level: 'low', context: 'ancillary', file: 'test/a.test.mjs' }),
+      f({ level: 'high', rule: 'shell-exec', baseLevel: 'high', file: 'bin/a.mjs' }),
+      f({ level: 'low', context: 'ancillary', file: 'test/b.test.mjs' }),
+    ])
+    expect(got.map((g) => g.key)).toEqual(['high:shell-exec', 'low:subprocess-spawn'])
+    expect(got[1].findings).toHaveLength(2)
+  })
+
+  it('组间按等级从重到轻，同级按条数从多到少', () => {
+    const got = groupFindings([
+      f({ rule: 'network-access', level: 'low' }),
+      f({ rule: 'subprocess-spawn', level: 'low' }),
+      f({ rule: 'subprocess-spawn', level: 'low', line: 2 }),
+      f({ rule: 'dynamic-exec', level: 'critical', baseLevel: 'critical' }),
+    ])
+    expect(got.map((g) => g.rule)).toEqual(['dynamic-exec', 'subprocess-spawn', 'network-access'])
+  })
+
+  it('空输入回空数组', () => {
+    expect(groupFindings([])).toEqual([])
   })
 })

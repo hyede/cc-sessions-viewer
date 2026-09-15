@@ -1,0 +1,60 @@
+# Vercel CLI 直传（vercel --prod）的请求体上限是 10MB，而这个仓库根目录下挂着 35GB 的
+# Rust 构建产物和 570MB 的 node_modules。文档站真正需要的只有三样：根 package 清单
+# （vitepress 通过 workspaces 装在这里）、site-docs 源码、docs/screenshots 里的截图，
+# 合计约 2MB。
+#
+# 这里用排除清单而不是「先 /* 全排除再逐项放行」的白名单写法：白名单能不能生效，取决于
+# Vercel 遍历目录时是按目录剪枝还是按叶子路径逐个匹配，两种实现对 `/*` + `!/docs` 的
+# 结果不一样。排除清单在两种实现下含义相同。往仓库根加新目录时记得同步这份清单。
+
+/node_modules
+/src-tauri
+/src
+/dist
+/public
+/test
+/vendor
+/logs
+/my-articles
+/.git
+/.github
+/.husky
+/.vscode
+/.claude
+/.codex
+/.codegraph
+/.agents
+/.vercel
+/.env.local
+/.DS_Store
+/index.html
+/vite.config.ts
+/vitest.config.ts
+/tsconfig.json
+/tsconfig.node.json
+/commitlint.config.cjs
+/plan-mode-test.txt
+/CHANGELOG.md
+/CLAUDE.md
+/AGENTS.md
+/README.md
+/README.zh-CN.md
+/README.ja.md
+/.mcp.json
+/.gitattributes
+
+# docs 目录里只有 screenshots 与站点有关，其余是设计稿和预览页
+/docs/plan
+/docs/plans
+/docs/tools
+/docs/*.md
+/docs/*.html
+/docs/*.mmd
+# 3.4MB 的宣传动图，只被 my-articles 里的投稿文引用，文档站一张页面都没用到
+/docs/screenshots/session.gif
+
+# 构建现场会重新生成这三样
+/site-docs/.vitepress/dist
+/site-docs/.vitepress/cache
+/site-docs/public/screenshots
+/site-docs/node_modules

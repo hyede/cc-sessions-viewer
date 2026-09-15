@@ -2664,6 +2664,7 @@ pub fn run() {
             tools::mcp::tools_scan_mcp,
             tools::mcp_write::tools_apply_mcp,
             tools::registry::tools_registry_search,
+            tools::registry::tools_registry_trending,
             tools::registry_git::tools_registry_preview,
             tools::memo::tools_scan_memo,
             tools::memo::tools_read_memo,

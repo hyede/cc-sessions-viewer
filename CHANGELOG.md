@@ -6,6 +6,35 @@ All notable changes to this project are documented here. Format follows [Keep a 
 
 ---
 
+## [v0.5.1]
+
+### Features
+
+- **Documentation site** — a VitePress site at [sessions-viewer.js-bridge.com](https://sessions-viewer.js-bridge.com), 54 pages across English / 简体中文 / 日本語. Install guide, feature pages, the tool management guide, and a page per agent documenting where that CLI stores its sessions on disk and how to read a transcript by hand. The READMEs and the in-repo tool guide now link there instead of carrying the long-form text themselves. Built and deployed from the same repo (`npm run docs:build`), with a link-anchor checker wired into the build so a renamed heading fails the build rather than shipping a dead link.
+- **Trending leaderboard in Discover** — the discover panel used to sit empty until you typed something, because the skills.sh search API rejects queries shorter than two characters. It now opens on the 24-hour top 80, with the first entry selected so the detail pane has something in it. The refresh button in the header refetches for real: the list is cached for an hour, and the button bypasses that cache rather than quietly handing back the same rows.
+
+### Bug Fixes
+
+- **Skill risk scanner flagged ordinary imports as high risk** — `child_process` was matched as a bare substring, so every `import { execSync } from 'child_process'` counted as a finding, as did an assertion that the module is *absent*. The rule is now split in three: `dynamic-exec` (high) no longer mentions module names at all, a new `shell-exec` (high) matches the actual dangerous shape — a shell string built out of a variable — and a new `subprocess-spawn` (low) covers `spawn` / `execFile` / `fork`, which are the safe way to do the same thing. On the `archify` skill this moved the verdict from High / 101 findings / "not fully scanned" to Low / 5 findings / fully scanned, which matches the three passing audits skills.sh publishes for it.
+- **A skill with tests looked more dangerous than a skill without** — matches inside `test/`, `spec/`, `examples/`, `fixtures/`, `node_modules/` and `vendor/`, or in a `*.test.*` / `*.spec.*` file, are now downgraded two levels as ancillary context. On `archify`, 94 of the 100 files that produced a finding were test files.
+- **Files between 512 KB and 2 MB were never scanned** — the per-file cap is now 2 MB, so a large `SKILL.md` produces findings instead of a "not fully scanned" note.
+- **The Pi filter in Statistics showed a raw translation key** — `stats.scope.pi` was missing from all four dictionaries, and `t()` falls back to returning the key, so nothing about it looked broken until you read the chip.
+- **11 live keys were missing from the Traditional Chinese dictionary** — the chat tab context menu and two Git strings fell back to their keys. Ten dead keys that no longer exist anywhere were removed at the same time.
+- **The READMEs credited the wrong pricing source** — cost has been computed from models.dev for a while, but all three READMEs still said LiteLLM.
+- **CI could not run the test suite** — the workflow pinned Node 20, which jsdom 30 rejects outright (`^22.22.2 || ^24.15.0 || >=26.0.0`). Bumped to 22, matching `release.yml`.
+
+### Improvements
+
+- **Risk findings are grouped by rule and level** — one row per rule with an occurrence count, expandable. A skill that hits the same rule a hundred times used to push everything else off the screen, which is the opposite of what that panel is for.
+- **Risk scanning is ~280× faster** — the scanner ran on `regex_lite`, which has no SIMD, no literal prefilter and no lazy DFA (~1.2 MB/s measured). The full `regex` crate was already linked through `tauri-utils`, so switching cost no new dependencies and no build time: scanning `archify` went from 7085 ms to 25 ms, which is what made the 2 MB file cap affordable.
+- **Screenshots are two thirds smaller** — the 19 images in `docs/screenshots/` were recompressed (pixel-identical, 5.0 MB → 1.7 MB), so the README and the docs site load faster.
+- **Dependencies updated** — Vitest 5, jsdom 30, Vite 8.3, Vue 3.5.42, `@vue/test-utils` 2.5, `unplugin-icons` 24, bumpp 12, and the Tauri plugin set.
+
+### Tests
+
+- **Four-dictionary parity test** — asserts no dictionary is missing a key the others have, none holds a key the others lack, and no value is an empty string. `t()` returns the key on a miss, so a gap is otherwise silent; this test is what surfaced the 11 zh-TW gaps and the 10 dead keys above. It cannot catch a key missing from all four at once — that is how `stats.scope.pi` survived.
+- 53 new frontend tests and 28 new Rust tests, including six for the leaderboard scraper (the nastiest being a name containing a bracket, and a two-layer-escaped quote, neither of which the first parser survived) and a live `#[ignore]`d test against skills.sh so a future breakage there can be told apart from a breakage here in one command. The suite now runs 1736 frontend and 941 Rust tests.
+
 ## [v0.5.0]
 
 ### Features

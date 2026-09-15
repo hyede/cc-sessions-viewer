@@ -9,12 +9,13 @@
 [![Star on GitHub](https://img.shields.io/github/stars/jerrywu001/cc-sessions-viewer?style=flat&logo=github&label=Star%20on%20GitHub)](https://github.com/jerrywu001/cc-sessions-viewer)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?logo=vue.js&logoColor=fff)](https://vuejs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-sessions--viewer-c2410c)](https://sessions-viewer.js-bridge.com/ja/)
 
-[English](README.md) · [中文](README.zh-CN.md) · **日本語** · [CHANGELOG](CHANGELOG.md)
+[English](README.md) · [中文](README.zh-CN.md) · **日本語** · [**ドキュメント**](https://sessions-viewer.js-bridge.com/ja/) · [CHANGELOG](CHANGELOG.md)
 
 <p align="center"><strong>Claude Code</strong>、<strong>Codex</strong>、<strong>Grok Build</strong>、<strong>Kimi Code</strong>、<strong>Pi</strong>、<strong>Antigravity CLI</strong>、<strong>opencode</strong> 専用のネイティブデスクトップブラウザ。<br/>7 つの CLI のローカルセッション履歴を一元的に読み取り、検索し、管理します。</p>
 
-<p align="center">さらに<strong>ツール管理</strong>のページ — 各エージェントに散らばった skill（重複・リンク切れ・同じものが 3 か所に）を整理し、<br/>MCP サーバー・hook・指示ファイルもまとめて掌握。<a href="docs/tools/README.ja.md"><strong>ガイド →</strong></a></p>
+<p align="center">さらに<strong>ツール管理</strong>のページ — 各エージェントに散らばった skill（重複・リンク切れ・同じものが 3 か所に）を整理し、<br/>MCP サーバー・hook・指示ファイルもまとめて掌握。<a href="https://sessions-viewer.js-bridge.com/ja/tools/"><strong>ガイド →</strong></a></p>
 
 </div>
 
@@ -29,7 +30,7 @@ Sessions Viewer は、ローカルのエージェントセッション履歴を�
 > [!TIP]
 > **新機能 — ツール管理。** 7 つのエージェントの skill・MCP サーバー・hook・グローバル指示ファイルを 1 つの画面にまとめます。マシン上の重複した skill や切れたリンクを見つけて修復し、入力を始める前に MCP サーバーがコンテキストをどれだけ消費しているかを確認し、hook は信頼する前に試し実行できます。すべての変更は、書き換わるファイルを先に提示します。
 >
-> → **[ツール管理ガイドを読む](docs/tools/README.ja.md)**
+> → **[ツール管理ガイドを読む](https://sessions-viewer.js-bridge.com/ja/tools/)**
 
 ### 読む・探す
 
@@ -54,13 +55,15 @@ Sessions Viewer は、ローカルのエージェントセッション履歴を�
 
 ### 利用状況を把握・共有する
 
-- **統計と料金** — LiteLLM のリアルタイム料金で、プロジェクト・モデル・ツール別にトークン消費とコストを分析。macOS のメニューバーには各エージェントの Today / 7d / 30d 集計を表示。
+- **統計と料金** — models.dev のリアルタイム料金で、プロジェクト・モデル・ツール別にトークン消費とコストを分析。macOS のメニューバーには各エージェントの Today / 7d / 30d 集計を表示。
 - **柔軟なエクスポート** — 単一または複数セッションをオフラインで読める Markdown、HTML、可逆 JSON として保存。
 - **読み取り専用の安全性** — オリジナルの JSONL は変更・削除しません。
 
 ### 対応するセッションソース
 
 Claude Code、Codex、Grok Build、Kimi Code、Pi、Antigravity CLI、opencode に対応しています。Grok Build、Kimi Code、Pi では履歴、ターミナル、エクスポート、分析、再開のワークフローを利用できますが、GUI Chat は意図的に含めていません。
+
+それぞれがセッションをディスクのどこに保存するか、ターミナルから記録を読むコマンドとあわせて [sessions-viewer.js-bridge.com/ja/agents/](https://sessions-viewer.js-bridge.com/ja/agents/) にまとめています。
 
 ## スクリーンショット
 
@@ -134,7 +137,7 @@ Claude Code、Codex、Grok Build、Kimi Code、Pi、Antigravity CLI、opencode �
 
 ## インストール
 
-[Releases](https://github.com/jerrywu001/cc-sessions-viewer/releases) からプラットフォームに合ったインストーラをダウンロード：
+[Releases](https://github.com/jerrywu001/cc-sessions-viewer/releases) からプラットフォームに合ったインストーラをダウンロード、または[インストールガイド](https://sessions-viewer.js-bridge.com/ja/guide/install)を参照：
 
 | プラットフォーム | ファイル |
 | --- | --- |
@@ -142,13 +145,26 @@ Claude Code、Codex、Grok Build、Kimi Code、Pi、Antigravity CLI、opencode �
 | Windows x64 | `-setup.exe` / `.msi` |
 | Linux x86_64 | `.deb` / `.AppImage` |
 
-macOS 版 `.app` は **ad-hoc 署名済み・未公証** のため、初回起動時に「Apple は…検証できません」というダイアログが出ることがあります。回避方法は 2 つ：
-
-- Finder で `.app` を右クリック → **開く** → ダイアログで再度「開く」を押す（初回のみ）。
-- または、ターミナルで隔離属性を外す：
-  ```bash
-  sudo xattr -dr com.apple.quarantine "/Applications/Sessions Viewer.app"
-  ```
+> [!IMPORTANT]
+> **macOS: このビルドは公証（notarization）を受けていません。** ad-hoc 署名のみのため、初回
+> 起動時に Gatekeeper が「"Sessions Viewer"は開けません。Apple は、悪質なソフトウェアが含まれ
+> ていないことを確認できませんでした」と表示してブロックします。署名なしのオープンソース
+> ビルドでは正常な挙動で、異常ではありません。
+>
+> **macOS 15 Sequoia 以降** —— 右クリック →「開く」による回避は Apple が廃止しました：
+> 1. アプリをダブルクリックし、警告を閉じます。
+> 2. **システム設定 → プライバシーとセキュリティ** を開き、一番下までスクロールします。
+> 3. 「"Sessions Viewer"がブロックされました」の横の **このまま開く** をクリックし、認証します。
+> 4. もう一度アプリを起動し、**開く** をクリックします。
+>
+> **macOS 14 Sonoma 以前** —— Finder でアプリを右クリック → **開く** → ダイアログで再度
+> **開く**。初回のみです。
+>
+> **どちらの場合もターミナルから:**
+> ```bash
+> xattr -dr com.apple.quarantine "/Applications/Sessions Viewer.app"
+> ```
+> `Operation not permitted` と出る場合は `sudo` を付けてください。
 
 Linux 版 `.AppImage` はポータブル形式 —— `chmod +x` で実行可能になります。`.deb` のインストール：
 ```bash

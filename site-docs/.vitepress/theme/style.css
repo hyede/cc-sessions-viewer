@@ -1,0 +1,48 @@
+/* 站点配色跟 app 走：品牌色是 --brand-claude（#c2410c，orange-700），
+   和应用里徽标、活跃计数那些小色块用的是同一个值。VitePress 的默认主题
+   靠 --vp-c-brand-* 这一组变量驱动全部强调色，改这里就够，不用覆盖组件。 */
+:root {
+  --vp-c-brand-1: #c2410c;
+  --vp-c-brand-2: #9a3412;
+  --vp-c-brand-3: #ea580c;
+  --vp-c-brand-soft: rgba(194, 65, 12, 0.14);
+
+  /* 首屏标题的渐变。两端都落在品牌色附近，避免默认那种紫蓝色跑到别的色系去。 */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #ea580c, #c2410c);
+  --vp-home-hero-image-background-image: linear-gradient(
+    -45deg,
+    rgba(234, 88, 12, 0.35),
+    rgba(194, 65, 12, 0.25)
+  );
+  --vp-home-hero-image-filter: blur(44px);
+
+  /* 首屏那两个实心按钮是白字，默认取 --vp-c-brand-3（#ea580c）当底色，白字压上去只有
+     3.56:1，达不到 WCAG AA 正文要求的 4.5。换成 orange-700 是 5.18:1。按钮在明暗两套
+     主题下都是白字，所以底色不跟着主题走，只在 :root 定义一次。 */
+  --vp-button-brand-bg: #c2410c;
+  --vp-button-brand-border: #c2410c;
+  --vp-button-brand-hover-bg: #9a3412;
+  --vp-button-brand-hover-border: #9a3412;
+  --vp-button-brand-active-bg: #7c2d12;
+  --vp-button-brand-active-border: #7c2d12;
+}
+
+.dark {
+  /* 暗色下 orange-700 在深底上偏闷，整体提一档亮度，对比度才够。 */
+  --vp-c-brand-1: #fb923c;
+  --vp-c-brand-2: #f97316;
+  --vp-c-brand-3: #ea580c;
+  --vp-c-brand-soft: rgba(251, 146, 60, 0.16);
+}
+
+/* 文档里的截图统一给个边框和圆角 —— 应用界面本身是浅色的，白底页面上
+   不描边的话图和页面会糊成一片，看不出哪里是截图的边界。 */
+.vp-doc img {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  /* 每张截图都带真实的 width/height 属性（为了消掉 CLS），所以这里必须显式给
+     max-width + height:auto，否则原始像素宽会撑破版面、缩放时纵横比也会被压扁。 */
+  max-width: 100%;
+  height: auto;
+}

@@ -922,8 +922,9 @@ export type RiskLevel = 'none' | 'low' | 'medium' | 'high' | 'critical'
 /**
  * 命中点在什么上下文里，决定了降几级。
  * SKILL.md 正文里拿 `rm -rf /` 当反面例子太常见，不降权的话说明文档全是 Critical。
+ * `ancillary` 是路径维度的：测试 / 示例 / 依赖目录里的代码不在「用这个 skill」的执行路径上。
  */
-export type RiskContext = 'executable' | 'comment' | 'codeBlock' | 'prose'
+export type RiskContext = 'executable' | 'comment' | 'codeBlock' | 'prose' | 'ancillary'
 
 export interface RiskFinding {
   rule: string

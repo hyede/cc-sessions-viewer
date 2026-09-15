@@ -9,12 +9,13 @@
 [![Downloads](https://img.shields.io/github/downloads/jerrywu001/cc-sessions-viewer/total)](https://github.com/jerrywu001/cc-sessions-viewer/releases/latest)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?logo=vue.js&logoColor=fff)](https://vuejs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-sessions--viewer-c2410c)](https://sessions-viewer.js-bridge.com)
 
-**English** · [中文](README.zh-CN.md) · [日本語](README.ja.md) · [CHANGELOG](CHANGELOG.md)
+**English** · [中文](README.zh-CN.md) · [日本語](README.ja.md) · [**Documentation**](https://sessions-viewer.js-bridge.com) · [CHANGELOG](CHANGELOG.md)
 
 <p align="center">A native desktop browser for <strong>Claude Code</strong>, <strong>Codex</strong>, <strong>Grok Build</strong>, <strong>Kimi Code</strong>, <strong>Pi</strong>, <strong>Antigravity CLI</strong>, and <strong>opencode</strong>.<br/>Read, search, and manage local session transcripts from all seven in one place.</p>
 
-<p align="center">Plus a <strong>tool management</strong> page — round up the skills scattered across your agents (duplicates, dead links, the same one stored three times),<br/>and take over MCP servers, hooks, and instruction files. <a href="docs/tools/README.md"><strong>Guide →</strong></a></p>
+<p align="center">Plus a <strong>tool management</strong> page — round up the skills scattered across your agents (duplicates, dead links, the same one stored three times),<br/>and take over MCP servers, hooks, and instruction files. <a href="https://sessions-viewer.js-bridge.com/tools/"><strong>Guide →</strong></a></p>
 
 </div>
 
@@ -29,7 +30,7 @@ Sessions Viewer turns local agent transcripts into a searchable workspace. Open 
 > [!TIP]
 > **New — Tool management.** Skills, MCP servers, hooks, and instruction files for all seven agents in one place. Find the duplicate skills and broken links on your machine and repair them, see what your MCP servers cost in context before you type, and dry-run a hook before you trust it. Every change previews the exact file edits first.
 >
-> → **[Read the tool management guide](docs/tools/README.md)**
+> → **[Read the tool management guide](https://sessions-viewer.js-bridge.com/tools/)**
 
 ### Read and find context
 
@@ -54,13 +55,15 @@ Sessions Viewer turns local agent transcripts into a searchable workspace. Open 
 
 ### Understand usage and share results
 
-- **Stats and pricing** — inspect token spend and cost by project, model, or tool using live LiteLLM pricing; macOS menu bar stats show Today / 7d / 30d totals per agent.
+- **Stats and pricing** — inspect token spend and cost by project, model, or tool using live pricing from models.dev; macOS menu bar stats show Today / 7d / 30d totals per agent.
 - **Flexible export** — export one session or a batch as offline-readable Markdown, HTML, or lossless JSON.
 - **Read-only safety** — source JSONL files are never modified or removed.
 
 ### Supported session sources
 
 Claude Code, Codex, Grok Build, Kimi Code, Pi, Antigravity CLI, and opencode. Grok Build, Kimi Code, and Pi provide history, terminal, export, analysis, and resume workflows; their GUI chat is intentionally not included.
+
+Where each one stores its sessions on disk, with commands for reading a transcript by hand, is documented at [sessions-viewer.js-bridge.com/agents/](https://sessions-viewer.js-bridge.com/agents/).
 
 ## Screenshots
 
@@ -134,7 +137,7 @@ Claude Code, Codex, Grok Build, Kimi Code, Pi, Antigravity CLI, and opencode. Gr
 
 ## Install
 
-Grab the latest installer from [Releases](https://github.com/jerrywu001/cc-sessions-viewer/releases):
+Grab the latest installer from [Releases](https://github.com/jerrywu001/cc-sessions-viewer/releases), or follow the [installation guide](https://sessions-viewer.js-bridge.com/guide/install):
 
 | Platform | File |
 | --- | --- |
@@ -142,13 +145,26 @@ Grab the latest installer from [Releases](https://github.com/jerrywu001/cc-sessi
 | Windows x64 | `-setup.exe` / `.msi` |
 | Linux x86_64 | `.deb` / `.AppImage` |
 
-On macOS the `.app` is **ad-hoc signed but not notarized**, so first launch may show *"Apple cannot verify…"*. Two ways past it:
-
-- Right-click the app in Finder → **Open** → confirm in the dialog (one-time).
-- Or strip the quarantine attribute in Terminal:
-  ```bash
-  sudo xattr -dr com.apple.quarantine "/Applications/Sessions Viewer.app"
-  ```
+> [!IMPORTANT]
+> **macOS: this build is not notarized.** It is ad-hoc signed, so Gatekeeper blocks the
+> first launch with *"Apple could not verify 'Sessions Viewer' is free of malware."*
+> That is what an unsigned open-source build looks like, not a sign something is wrong.
+>
+> **macOS 15 Sequoia and later** — Control-click → Open no longer works, Apple removed
+> that bypass:
+> 1. Double-click the app once and dismiss the warning.
+> 2. Open **System Settings → Privacy & Security** and scroll to the bottom.
+> 3. Next to *"Sessions Viewer" was blocked*, click **Open Anyway** and authenticate.
+> 4. Launch the app again and click **Open**.
+>
+> **macOS 14 Sonoma and earlier** — Control-click (right-click) the app in Finder →
+> **Open** → **Open** in the dialog. Once is enough.
+>
+> **Either version, from Terminal:**
+> ```bash
+> xattr -dr com.apple.quarantine "/Applications/Sessions Viewer.app"
+> ```
+> Prefix with `sudo` if it reports `Operation not permitted`.
 
 On Linux the `.AppImage` is portable — `chmod +x` and run. The `.deb` installs with:
 ```bash

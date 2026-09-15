@@ -36,6 +36,12 @@ rayon = "1"
 # 统计活动分类（codeburn 风格的关键词正则）+ Bash 命令首词提取用。
 # lite 版去掉 Unicode 表和 DFA，二进制小 ~1MB，这里只用简单模式足够。
 regex-lite = "0.1"
+# 只给 `tools/risk.rs` 用。它要扫整个 skill 目录（archify 一个就 8.3 MB），而
+# regex-lite 是**去掉全部优化**的那个变体：没有 SIMD、没有字面量预筛、没有 lazy DFA，
+# 实测吞吐只有 ~1.2 MB/s，扫一个 archify 要 7 秒。完整的 regex 在同一份输入上是
+# 两位数毫秒。**不增加任何编译产物**：tauri-utils 已经把 regex 1.12 拉进来了，
+# 这里只是复用同一份。其余小输入的地方（cli_env / util）继续用 regex-lite。
+regex = "1"
 once_cell = "1"
 # 实时 tail：监听打开会话所在 JSONL 文件的写入事件。
 # default-features=false 关掉 cross-beam 依赖，统一走平台原生（FSEvents/inotify/ReadDirectoryChangesW）。

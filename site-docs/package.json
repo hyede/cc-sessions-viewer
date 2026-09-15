@@ -1,0 +1,17 @@
+{
+  "name": "site-docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Documentation site for Sessions Viewer",
+  "scripts": {
+    "sync-assets": "node scripts/sync-assets.mjs",
+    "dev": "npm run sync-assets && vitepress dev",
+    "build": "npm run sync-assets && vitepress build && npm run check-anchors",
+    "preview": "vitepress preview",
+    "check-anchors": "node scripts/check-anchors.mjs"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  }
+}

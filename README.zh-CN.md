@@ -9,12 +9,13 @@
 [![Star on GitHub](https://img.shields.io/github/stars/jerrywu001/cc-sessions-viewer?style=flat&logo=github&label=Star%20on%20GitHub)](https://github.com/jerrywu001/cc-sessions-viewer)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42b883?logo=vue.js&logoColor=fff)](https://vuejs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-sessions--viewer-c2410c)](https://sessions-viewer.js-bridge.com/zh/)
 
-[English](README.md) · **中文** · [日本語](README.ja.md) · [CHANGELOG](CHANGELOG.md)
+[English](README.md) · **中文** · [日本語](README.ja.md) · [**文档站**](https://sessions-viewer.js-bridge.com/zh/) · [CHANGELOG](CHANGELOG.md)
 
 <p align="center">一个专为 <strong>Claude Code</strong>、<strong>Codex</strong>、<strong>Grok Build</strong>、<strong>Kimi Code</strong>、<strong>Pi</strong>、<strong>Antigravity CLI</strong> 和 <strong>opencode</strong> 打造的原生桌面浏览器。<br/>在一处读取、搜索并管理七个 CLI 的本地会话记录。</p>
 
-<p align="center">另有一整页<strong>工具管理</strong> —— 把散落在各家 agent 的 skills 收拢干净（重复、断链、同一份存了三处），<br/>并接管 MCP server、hooks 与全局指令文件。<a href="docs/tools/README.zh-CN.md"><strong>使用文档 →</strong></a></p>
+<p align="center">另有一整页<strong>工具管理</strong> —— 把散落在各家 agent 的 skills 收拢干净（重复、断链、同一份存了三处），<br/>并接管 MCP server、hooks 与全局指令文件。<a href="https://sessions-viewer.js-bridge.com/zh/tools/"><strong>使用文档 →</strong></a></p>
 
 </div>
 
@@ -29,7 +30,7 @@ Sessions Viewer 将本地 agent 会话记录整理成可搜索的工作区。打
 > [!TIP]
 > **新增 —— 工具管理。** 七家 agent 的 skills、MCP server、hooks 和全局指令文件，集中在一个页面。把本机重复的 skill 和断掉的链接找出来并修好，在开口之前先看清楚 MCP server 吃掉多少上下文，hook 可以先试跑再决定要不要信它。每一次改动都先把会改哪些文件摆给你看。
 >
-> → **[查看工具管理文档](docs/tools/README.zh-CN.md)**
+> → **[查看工具管理文档](https://sessions-viewer.js-bridge.com/zh/tools/)**
 
 ### 阅读与定位
 
@@ -54,13 +55,15 @@ Sessions Viewer 将本地 agent 会话记录整理成可搜索的工作区。打
 
 ### 统计与导出
 
-- **统计与实时价格** — 基于 LiteLLM 实时价目按项目、模型或工具分析 Token 与成本；macOS 菜单栏显示各 agent 的 Today / 7d / 30d 汇总。
+- **统计与实时价格** — 基于 models.dev 实时价目按项目、模型或工具分析 Token 与成本；macOS 菜单栏显示各 agent 的 Today / 7d / 30d 汇总。
 - **灵活导出** — 单会话或批量导出为离线可读的 Markdown、HTML 或无损 JSON。
 - **只读安全** — 原始 JSONL 始终只读，不会被修改或删除。
 
 ### 支持的会话来源
 
 Claude Code、Codex、Grok Build、Kimi Code、Pi、Antigravity CLI 和 opencode。Grok Build、Kimi Code 与 Pi 支持历史记录、终端、导出、统计和续跑流程；它们的 GUI Chat 暂不包含在内。
+
+每一种把会话存在磁盘的什么地方、怎么用命令行直接读，都写在[sessions-viewer.js-bridge.com/zh/agents/](https://sessions-viewer.js-bridge.com/zh/agents/)。
 
 ## 截图
 
@@ -134,7 +137,7 @@ Claude Code、Codex、Grok Build、Kimi Code、Pi、Antigravity CLI 和 opencode
 
 ## 安装
 
-到 [Releases](https://github.com/jerrywu001/cc-sessions-viewer/releases) 下载对应平台的安装包：
+到 [Releases](https://github.com/jerrywu001/cc-sessions-viewer/releases) 下载对应平台的安装包，或者看[安装文档](https://sessions-viewer.js-bridge.com/zh/guide/install)：
 
 | 平台 | 文件 |
 | --- | --- |
@@ -142,13 +145,24 @@ Claude Code、Codex、Grok Build、Kimi Code、Pi、Antigravity CLI 和 opencode
 | Windows x64 | `-setup.exe` / `.msi` |
 | Linux x86_64 | `.deb` / `.AppImage` |
 
-macOS 上 `.app` 是 **ad-hoc 签名、未公证**，首次打开可能弹出「Apple 无法验证…」。两种绕过方式：
-
-- Finder 里右键应用 → **打开** → 弹窗里再确认（一次即可）。
-- 或在终端清掉隔离属性：
-  ```bash
-  sudo xattr -dr com.apple.quarantine "/Applications/Sessions Viewer.app"
-  ```
+> [!IMPORTANT]
+> **macOS：本应用未做公证（notarization）。** 它只有 ad-hoc 签名，首次打开会被 Gatekeeper
+> 拦下，提示「无法打开"Sessions Viewer"，因为 Apple 无法检查其是否包含恶意软件」。这是未签名
+> 开源构建的正常表现，不代表有问题。
+>
+> **macOS 15 Sequoia 及以后** —— 右键 →「打开」这招已经失效，Apple 把这个后门关了：
+> 1. 双击应用，把警告关掉。
+> 2. 打开 **系统设置 → 隐私与安全性**，滚到最底部。
+> 3. 在「已阻止使用"Sessions Viewer"」旁边点 **仍要打开**，然后验证身份。
+> 4. 再次启动应用，点 **打开**。
+>
+> **macOS 14 Sonoma 及以前** —— Finder 里右键应用 → **打开** → 弹窗里再点 **打开**，一次即可。
+>
+> **两个版本通用，终端一行搞定：**
+> ```bash
+> xattr -dr com.apple.quarantine "/Applications/Sessions Viewer.app"
+> ```
+> 如果提示 `Operation not permitted`，前面加 `sudo`。
 
 Linux 上 `.AppImage` 是便携格式 —— `chmod +x` 后直接运行。`.deb` 安装：
 ```bash

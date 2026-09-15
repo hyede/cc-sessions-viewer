@@ -81,14 +81,45 @@ describe('查询词', () => {
 
 describe('列表区该显示什么', () => {
   const none = null
+  /** 榜单没拿到（离线、或者 skills.sh 改了前端）。 */
+  const noTrend = { loading: false, hits: [] }
 
   it('没输入时是引导页，不是「没找到」', () => {
-    expect(discoverState('', false, none, none)).toBe('idle')
-    expect(discoverState('   ', false, none, none)).toBe('idle')
+    expect(discoverState('', false, none, none, noTrend)).toBe('idle')
+    expect(discoverState('   ', false, none, none, noTrend)).toBe('idle')
+  })
+
+  /**
+   * 搜索接口不收空查询（HTTP 400），所以刚进面板那一屏没法靠搜索填 —— 不给点东西看
+   * 的话，用户得先猜一个词才知道这儿有内容。榜单就是拿来填这一屏的。
+   */
+  it('没输入关键词时优先显示榜单', () => {
+    const hits = [hit({ skillId: 'deploy-to-vercel' })]
+    expect(discoverState('', false, none, none, { loading: false, hits })).toBe('trending')
+    expect(discoverState('   ', false, none, none, { loading: true, hits })).toBe(
+      'trending',
+      )
+  })
+
+  it('榜单在路上和榜单没有是两回事', () => {
+    // 一个该转圈，一个该说「搜点什么吧」。都当成 idle 的话，取榜单那两秒里面板是
+    // 死的，看着像没反应。
+    expect(discoverState('', false, none, none, { loading: true, hits: [] })).toBe(
+      'trendingLoading',
+    )
+    expect(discoverState('', false, none, none, noTrend)).toBe('idle')
+  })
+
+  /** 榜单只管空查询那一屏。一旦开始打字，它就不该再影响任何状态。 */
+  it('输入了关键词之后榜单不再参与判定', () => {
+    const withTrend = { loading: false, hits: [hit()] }
+    expect(discoverState('a', false, none, none, withTrend)).toBe('tooShort')
+    expect(discoverState('type', true, none, none, withTrend)).toBe('loading')
+    expect(discoverState('zzzz', false, none, search({ hits: [] }), withTrend)).toBe('empty')
   })
 
   it('输入太短时说清楚，不发请求也不报错', () => {
-    expect(discoverState('a', false, none, none)).toBe('tooShort')
+    expect(discoverState('a', false, none, none, noTrend)).toBe('tooShort')
   })
 
   /**
@@ -97,19 +128,19 @@ describe('列表区该显示什么', () => {
    */
   it('正在搜的时候既不显示旧错误也不显示旧结果', () => {
     const err: RegistryError = { kind: 'offline', detail: 'x' }
-    expect(discoverState('type', true, err, search())).toBe('loading')
+    expect(discoverState('type', true, err, search(), noTrend)).toBe('loading')
   })
 
   it('出错就是出错，有结果就是有结果', () => {
     const err: RegistryError = { kind: 'http', detail: '503' }
-    expect(discoverState('type', false, err, none)).toBe('error')
-    expect(discoverState('type', false, none, search())).toBe('ready')
+    expect(discoverState('type', false, err, none, noTrend)).toBe('error')
+    expect(discoverState('type', false, none, search(), noTrend)).toBe('ready')
   })
 
   /** 搜到零条和还没搜是两回事：一个该说「没找到 xxx」，一个该说「搜点什么吧」。 */
   it('零结果和还没开始搜要分开', () => {
-    expect(discoverState('zzzz', false, none, search({ hits: [] }))).toBe('empty')
-    expect(discoverState('zzzz', false, none, none)).toBe('idle')
+    expect(discoverState('zzzz', false, none, search({ hits: [] }), noTrend)).toBe('empty')
+    expect(discoverState('zzzz', false, none, none, noTrend)).toBe('idle')
   })
 })
 

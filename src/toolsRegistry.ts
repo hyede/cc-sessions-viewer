@@ -50,16 +50,36 @@ export function queryTooShort(query: string): boolean {
  * 抽成一个函数而不是在模板里堆 `v-if`：四个状态之间的**优先级**才是要被钉住的东西
  * （正在加载时不该闪一下「没找到」，出错时不该继续显示上一次的结果）。
  */
-export type DiscoverState = 'idle' | 'tooShort' | 'loading' | 'error' | 'empty' | 'ready'
+export type DiscoverState =
+  | 'idle'
+  | 'trendingLoading'
+  | 'trending'
+  | 'tooShort'
+  | 'loading'
+  | 'error'
+  | 'empty'
+  | 'ready'
+
+/** 没输入任何关键词时那一屏的素材（24 小时榜）。 */
+export interface TrendingState {
+  loading: boolean
+  hits: RegistryHit[]
+}
 
 export function discoverState(
   query: string,
   loading: boolean,
   error: RegistryError | null,
   result: RegistrySearch | null,
+  trending: TrendingState,
 ): DiscoverState {
   const q = query.trim()
-  if (q === '') return 'idle'
+  if (q === '') {
+    // 搜索接口不收空查询，所以这一屏没法靠搜索填。榜单拿不到就退回原来那句提示 ——
+    // 榜单是锦上添花，它没了搜索还得能用。
+    if (trending.hits.length > 0) return 'trending'
+    return trending.loading ? 'trendingLoading' : 'idle'
+  }
   if (queryTooShort(q)) return 'tooShort'
   // 加载态压在错误和结果之上：重新搜的时候屏幕上不该还挂着上一次的失败提示。
   if (loading) return 'loading'

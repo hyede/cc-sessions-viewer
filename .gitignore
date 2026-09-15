@@ -33,3 +33,9 @@ docs/superpowers/*
 
 # 我的文章草稿，不进仓库
 my-articles/
+
+# VitePress 文档站：构建产物、缓存，以及从 docs/screenshots 同步过来的截图副本
+site-docs/.vitepress/dist
+site-docs/.vitepress/cache
+site-docs/public/screenshots
+.vercel

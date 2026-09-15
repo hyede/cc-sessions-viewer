@@ -22,7 +22,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # jsdom 30 requires ^22.22.2 || ^24.15.0 || >=26.0.0 — Node 20 is out of
+          # range entirely, so the vitest suite cannot run on it. Plain `22` resolves
+          # to the latest 22.x, which is above that floor. release.yml already uses 22.
+          node-version: 22
           cache: npm
 
       - run: npm ci

@@ -9,6 +9,7 @@ import { ref } from 'vue'
 import type {
   Agent,
   RefHealth,
+  RiskFinding,
   RiskLevel,
   SkillBadge,
   SkillEntry,
@@ -30,6 +31,41 @@ export function riskRank(level: RiskLevel): number {
 
 export function worstRisk(levels: RiskLevel[]): RiskLevel {
   return levels.reduce<RiskLevel>((a, b) => (riskRank(b) > riskRank(a) ? b : a), 'none')
+}
+
+/** 一组同规则同等级的命中。 */
+export interface RiskFindingGroup {
+  /** `level:rule`，组内唯一，`v-for` 的 key 直接用它。 */
+  key: string
+  rule: string
+  level: RiskLevel
+  findings: RiskFinding[]
+}
+
+/**
+ * 把命中按「规则 × 等级」折叠。
+ *
+ * 不折叠的话，一个 skill 在 `bin/` 和 100 个测试文件里各起一次子进程，就是 101 行
+ * 内容一模一样的列表 —— 用户要回答的问题是「这东西危险吗」，而 101 行同一句话
+ * 只会把真正不同的那几条推出屏幕。
+ *
+ * 组内保留后端给的顺序（已按 file / line 排好），组间按等级从重到轻，同级按条数
+ * 从多到少：最该先看的排最前。
+ */
+export function groupFindings(findings: RiskFinding[]): RiskFindingGroup[] {
+  const groups = new Map<string, RiskFindingGroup>()
+  for (const f of findings) {
+    const key = `${f.level}:${f.rule}`
+    const hit = groups.get(key)
+    if (hit) hit.findings.push(f)
+    else groups.set(key, { key, rule: f.rule, level: f.level, findings: [f] })
+  }
+  return [...groups.values()].sort(
+    (a, b) =>
+      riskRank(b.level) - riskRank(a.level) ||
+      b.findings.length - a.findings.length ||
+      a.rule.localeCompare(b.rule),
+  )
 }
 
 /**

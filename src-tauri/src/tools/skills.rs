@@ -1862,12 +1862,12 @@ mod tests {
     #[test]
     fn a_text_file_too_big_to_scan_counts_as_truncated() {
         // 超过单文件上限的**文本**：本该扫，没扫成。跳过 != 干净，那段危险脚本可能
-        // 正好在里面。
+        // 正好在里面。尺寸跟着 `risk::MAX_FILE_BYTES`（2 MiB）走。
         let root = temp_root("skipped");
         let store = root.join("store");
         fs::create_dir_all(&store).unwrap();
         let dir = body(&store, "big-text", "---\nname: big-text\n---\n");
-        fs::write(dir.join("huge.sh"), "a".repeat(600 * 1024)).unwrap();
+        fs::write(dir.join("huge.sh"), "a".repeat(3 * 1024 * 1024)).unwrap();
 
         let skills = group(scan_store(&ident(&store, &[])).1, &[]);
         let entry = find(&skills, "big-text");

@@ -35,6 +35,7 @@ import type {
   McpFileStamp,
   McpWriteReport,
   RegistryPreview,
+  RegistryHit,
   RegistrySearch,
   HookScan,
   HookEdit,
@@ -824,6 +825,17 @@ export const toolsScanHooks = (cwd?: string) =>
  */
 export const toolsRegistrySearch = (query: string, limit: number) =>
   invoke<RegistrySearch>('tools_registry_search', { query, limit })
+
+/**
+ * skills.sh 的 24 小时榜前 80。给「还没输入任何关键词」的那一屏用 —— 搜索接口
+ * 拒绝空查询，不给点东西看的话面板一打开就是白的。
+ *
+ * 后端缓存 1 小时，所以反复开关面板不会反复打网络；`force` 绕过那道缓存，留给表头
+ * 那个刷新按钮 —— 不绕的话按钮在一小时内什么都不做。**取不到时 reject**，调用方应当
+ * 静默退回原来的空态提示：榜单是锦上添花，它没了搜索还得能用，不该弹错误框。
+ */
+export const toolsRegistryTrending = (force = false) =>
+  invoke<RegistryHit[]>('tools_registry_trending', { force })
 
 /**
  * 把这个 skill 从远端仓库取到本地缓存里，并描述它（frontmatter / 文件 / 风险）。

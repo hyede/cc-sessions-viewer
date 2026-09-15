@@ -73,8 +73,42 @@ function changeSort(next: HitSort) {
 }
 const selectedKey = ref<string | null>(null)
 
-const state = computed(() => discoverState(toolsQuery.value, loading.value, error.value, result.value))
-const list = computed(() => sortHits(result.value?.hits ?? [], sort.value))
+/**
+ * 24 小时榜，给「还没输入任何关键词」的那一屏用。
+ *
+ * 搜索接口**拒绝空查询**（HTTP 400，连 `*` 都不收），所以这一屏没法靠搜索填 ——
+ * 在这之前用户得先猜一个词，才知道这个面板里有东西。
+ *
+ * 取不到就当没有：`state` 会退回原来那句「搜点什么吧」。榜单是扒对方前端拿到的
+ * （见 `registry.rs` 模块头），哪天失效了也只是少一屏推荐，不该让一个本来能用的
+ * 搜索面板看起来坏了，更不该弹错误框。
+ */
+const trending = ref<RegistryHit[]>([])
+const trendingLoading = ref(false)
+
+/** `force` 绕过后端那一小时缓存。开面板时不传（反复开关不该反复打网络），
+ *  表头那个刷新按钮传 —— 用户主动点了就得真去取一次，否则按钮是假的。 */
+async function loadTrending(force = false) {
+  trendingLoading.value = true
+  try {
+    trending.value = await api.toolsRegistryTrending(force)
+  } catch {
+    trending.value = []
+  } finally {
+    trendingLoading.value = false
+  }
+}
+void loadTrending()
+
+const state = computed(() =>
+  discoverState(toolsQuery.value, loading.value, error.value, result.value, {
+    loading: trendingLoading.value,
+    hits: trending.value,
+  }),
+)
+const list = computed(() =>
+  sortHits(state.value === 'trending' ? trending.value : (result.value?.hits ?? []), sort.value),
+)
 const selected = computed<RegistryHit | null>(
   () => list.value.find((h) => hitKey(h) === selectedKey.value) ?? null,
 )
@@ -187,6 +221,25 @@ function select(key: string) {
  * 按引用比会在同一条上白跑一次 git。
  */
 watch(() => (selected.value ? hitKey(selected.value) : null), () => void loadPreview())
+
+/**
+ * 榜单画出来之后自动选中第一条。
+ *
+ * 只对榜单那一屏做，**不对搜索结果做**：搜索是用户带着目标来的，替他选一条等于替他
+ * 决定看哪个；而榜单这一屏用户本来就没有目标，右边空着的话他还得再点一下才知道
+ * 这个面板能给他看什么（文件清单、风险点）。
+ *
+ * 盯的是「榜单的第一条是谁」而不是 `list` 本身：换排序、榜单刷新都会造出新数组，
+ * 按数组比会在同一条上白跑一次 git clone。已经选了东西就不抢 —— 包括用户把
+ * 第一条主动取消选中的情况（那时这个表达式没变，不会重新触发）。
+ */
+watch(
+  () => (state.value === 'trending' && list.value[0] ? hitKey(list.value[0]) : null),
+  (first) => {
+    if (first && !selectedKey.value) selectedKey.value = first
+  },
+  { immediate: true },
+)
 
 /**
  * 第几轮预览。和搜索那边同一个理由：首次 3 秒级、命中缓存 200 ms 级，差两个数量级，
@@ -348,6 +401,26 @@ function closeTerminal() {
     <span v-else-if="state === 'loading'" class="tools-health-empty">
       {{ t('tools.discover.loading') }}
     </span>
+    <!-- 榜单那一屏也要说清这是什么，否则用户会以为这就是「所有 skill」。 -->
+    <template v-else-if="state === 'trending'">
+      <span class="tools-health-total">
+        {{ t('tools.discover.trending', { n: String(trending.length) }) }}
+      </span>
+      <span class="disc-kind" v-tooltip="t('tools.discover.trendingTip')">
+        {{ t('tools.discover.trendingWindow') }}
+      </span>
+      <span class="tools-gap" />
+      <button
+        type="button"
+        class="tools-icon-btn"
+        :disabled="trendingLoading"
+        v-tooltip="t('tools.discover.trendingRefresh')"
+        :aria-label="t('tools.discover.trendingRefresh')"
+        @click="loadTrending(true)"
+      >
+        <IconRefresh />
+      </button>
+    </template>
     <span v-else class="tools-health-empty">{{ t('tools.discover.idleHint') }}</span>
   </div>
 
@@ -359,7 +432,7 @@ function closeTerminal() {
       </p>
       <!-- 骨架而不是一行「正在搜索…」：右边详情区在同样的等待里画的就是骨架，
            左边摆一行居中小字的话，同一屏上会有两种「正在读」的语言。 -->
-      <ToolsListSkeleton v-else-if="state === 'loading'" />
+      <ToolsListSkeleton v-else-if="state === 'loading' || state === 'trendingLoading'" />
       <!-- 失败时把分类过的那句话摆在上面，`ureq` 的英文原文折在「详细信息」里 ——
            四种语言的界面里只有一种看得懂那句原文。 -->
       <div v-else-if="state === 'error' && error" class="tools-placeholder error disc-error">

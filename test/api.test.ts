@@ -51,6 +51,18 @@ describe('api wrappers', () => {
     })
   })
 
+  it('toolsRegistryTrending 默认走后端缓存', () => {
+    api.toolsRegistryTrending()
+    expect(invoke).toHaveBeenCalledWith('tools_registry_trending', { force: false })
+  })
+
+  it('toolsRegistryTrending(true) 绕过后端那一小时缓存', () => {
+    // 表头那个刷新按钮传的就是这个。不传的话按钮在一小时内什么都不做 ——
+    // 转一圈 loading，回来还是同一份缓存，用户以为刷新了其实根本没联网。
+    api.toolsRegistryTrending(true)
+    expect(invoke).toHaveBeenCalledWith('tools_registry_trending', { force: true })
+  })
+
   it('cleanupPtyChildren -> cleanup_pty_children', () => {
     api.cleanupPtyChildren()
     expect(invoke).toHaveBeenCalledWith('cleanup_pty_children')
