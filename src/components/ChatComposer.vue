@@ -195,6 +195,12 @@ const pendingInlinePlaceholders = new Set<string>()
 let nextInlineImageId = 1
 
 function syncInlineImageBindings() {
+  // 每敲一个键都会走这里。没有内嵌图片时下面每一步算出来的结果都和输入一模一样
+  // （全是普通附件 → filter 全留、inline 为空 → 顺序不变），却每次都产生新数组、
+  // 把 images 标脏，白搭一次组件重渲染。这种情况占打字的绝大多数，直接早退。
+  // 条件要带上 pendingInlinePlaceholders：占位符先进正文、图片还在读盘的那一小段
+  // 里 images 是空的，但占位符的回收不能跳过。
+  if (pendingInlinePlaceholders.size === 0 && !images.value.some((i) => i.inlinePlaceholder)) return
   for (const placeholder of pendingInlinePlaceholders) {
     if (!text.value.includes(placeholder)) pendingInlinePlaceholders.delete(placeholder)
   }
