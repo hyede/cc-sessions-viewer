@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { t } from '../i18n'
-import { agentIcons, IconInfo } from './icons'
+import { agentIcons } from './icons'
 import {
   cliVersions,
   loading,
@@ -57,12 +57,6 @@ function platformLabel() {
   if (p.includes('mac')) return 'macOS'
   if (p.includes('win')) return 'Windows'
   return 'Linux'
-}
-
-function versionStatusHint(cli: string, installed: boolean, latestVersion?: string | null) {
-  return cli === 'kimi' && installed && !latestVersion
-    ? t('settings.cli.kimiVersionStatusHint')
-    : ''
 }
 
 function agentIconForCli(cli: string) {
@@ -162,22 +156,14 @@ onMounted(() => {
           <span v-if="info.upgradable" class="ce-badge ce-badge-up">{{ t('settings.cli.upgradable') }}</span>
           <span v-else-if="info.installed && info.latestVersion" class="ce-badge ce-badge-ok">{{ t('settings.cli.upToDate') }}</span>
           <span v-else-if="!info.installed" class="ce-badge ce-badge-na">{{ t('settings.cli.notInstalled') }}</span>
+          <!-- 只报异常。健康是预期状态，给它挂一个「配置可用」只会和旁边的版本
+               徽标抢注意力，而这一行真正要回答的问题是「有没有我该管的事」。 -->
           <span
-            v-if="info.health"
-            class="ce-badge"
-            :class="info.health.healthy ? 'ce-badge-health-ok' : 'ce-badge-health-error'"
-            :title="info.health.summary || undefined"
+            v-if="info.health && !info.health.healthy"
+            class="ce-badge ce-badge-health-error"
+            v-tooltip="info.health.summary || ''"
           >
-            {{ info.health.healthy ? t('settings.cli.healthOk') : t('settings.cli.healthFailed') }}
-          </span>
-          <span
-            v-if="versionStatusHint(info.cli, info.installed, info.latestVersion)"
-            class="ce-version-hint"
-            v-tooltip="versionStatusHint(info.cli, info.installed, info.latestVersion)"
-            :aria-label="versionStatusHint(info.cli, info.installed, info.latestVersion)"
-            tabindex="0"
-          >
-            <IconInfo aria-hidden="true" />
+            {{ t('settings.cli.healthFailed') }}
           </span>
         </div>
 
@@ -306,29 +292,9 @@ onMounted(() => {
   font-size: 11px;
 }
 
-.ce-badge-health-ok {
-  color: var(--green, #2d8a5b);
-  border-color: color-mix(in srgb, var(--green, #2d8a5b) 35%, var(--border));
-}
 .ce-badge-health-error {
   color: var(--red, #c84b4b);
   border-color: color-mix(in srgb, var(--red, #c84b4b) 35%, var(--border));
-}
-.ce-version-hint {
-  display: inline-flex;
-  align-items: center;
-  color: var(--text-mute);
-  cursor: help;
-  flex-shrink: 0;
-}
-.ce-version-hint :deep(svg) {
-  width: 14px;
-  height: 14px;
-}
-.ce-version-hint:focus-visible {
-  outline: 1px solid var(--accent, var(--text));
-  outline-offset: 2px;
-  border-radius: 2px;
 }
 
 /* ---- cards ---- */

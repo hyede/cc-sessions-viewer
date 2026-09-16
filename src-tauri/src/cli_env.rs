@@ -19,12 +19,13 @@ struct CliSpec {
     manifest_url: Option<&'static str>,
     /// Command that reports the latest version for self-managed CLIs.
     version_check_command: Option<&'static str>,
+    /// Endpoint returning the latest version as bare text (no JSON envelope).
+    /// Kimi publishes `…/latest` this way and its own installer reads it.
+    latest_url: Option<&'static str>,
     /// Standalone install command for macOS / Linux (e.g. curl-based installer).
     install_unix: Option<&'static str>,
     /// Standalone install command for Windows (PowerShell, e.g. irm … | iex).
     install_windows: Option<&'static str>,
-    /// A non-interactive update is safe to run from the viewer.
-    background_upgrade: bool,
     /// Optional read-only health probe. Its output is never returned to the UI.
     health_check_command: Option<&'static str>,
 }
@@ -37,10 +38,10 @@ const CLI_SPECS: &[CliSpec] = &[
         brew_upgrade: Some("claude-code@latest"),
         builtin_update: Some("claude update"),
         manifest_url: None,
+        latest_url: None,
         version_check_command: None,
         install_unix: Some("curl -fsSL https://claude.ai/install.sh | bash"),
         install_windows: Some("irm https://claude.ai/install.ps1 | iex"),
-        background_upgrade: true,
         health_check_command: None,
     },
     CliSpec {
@@ -50,10 +51,10 @@ const CLI_SPECS: &[CliSpec] = &[
         brew_upgrade: Some("--cask codex"),
         builtin_update: Some("codex update"),
         manifest_url: None,
+        latest_url: None,
         version_check_command: None,
         install_unix: Some("curl -fsSL https://chatgpt.com/codex/install.sh | sh"),
         install_windows: Some("irm https://chatgpt.com/codex/install.ps1 | iex"),
-        background_upgrade: true,
         health_check_command: None,
     },
     CliSpec {
@@ -65,10 +66,10 @@ const CLI_SPECS: &[CliSpec] = &[
         manifest_url: Some(
             "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/{platform}.json",
         ),
+        latest_url: None,
         version_check_command: None,
         install_unix: Some("curl -fsSL https://antigravity.google/cli/install.sh | bash"),
         install_windows: Some("irm https://antigravity.google/cli/install.ps1 | iex"),
-        background_upgrade: true,
         health_check_command: None,
     },
     CliSpec {
@@ -78,10 +79,10 @@ const CLI_SPECS: &[CliSpec] = &[
         brew_upgrade: Some("opencode"),
         builtin_update: Some("opencode upgrade"),
         manifest_url: None,
+        latest_url: None,
         version_check_command: None,
         install_unix: Some("curl -fsSL https://opencode.ai/install | bash"),
         install_windows: None,
-        background_upgrade: true,
         health_check_command: None,
     },
     CliSpec {
@@ -91,10 +92,10 @@ const CLI_SPECS: &[CliSpec] = &[
         brew_upgrade: None,
         builtin_update: Some("grok update"),
         manifest_url: None,
+        latest_url: None,
         version_check_command: Some("grok update --check --json"),
         install_unix: Some("curl -fsSL https://x.ai/cli/install.sh | bash"),
         install_windows: Some("irm https://x.ai/cli/install.ps1 | iex"),
-        background_upgrade: true,
         health_check_command: None,
     },
     CliSpec {
@@ -104,11 +105,10 @@ const CLI_SPECS: &[CliSpec] = &[
         brew_upgrade: None,
         builtin_update: None,
         manifest_url: None,
+        latest_url: Some("https://code.kimi.com/kimi-code/latest"),
         version_check_command: None,
         install_unix: Some("curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash"),
         install_windows: Some("irm https://code.kimi.com/kimi-code/install.ps1 | iex"),
-        // `kimi upgrade` can prompt, while Kimi manages its own default updates.
-        background_upgrade: false,
         health_check_command: Some("kimi doctor"),
     },
     CliSpec {
@@ -118,6 +118,7 @@ const CLI_SPECS: &[CliSpec] = &[
         brew_upgrade: None,
         builtin_update: Some("pi update self"),
         manifest_url: None,
+        latest_url: None,
         version_check_command: None,
         // Pi's documented curl installer still installs the npm package, but it
         // also bootstraps Node/npm when needed and selects a writable prefix.
@@ -125,7 +126,6 @@ const CLI_SPECS: &[CliSpec] = &[
         // the resolved binary's actual package manager instead.
         install_unix: Some("curl -fsSL https://pi.dev/install.sh | sh"),
         install_windows: Some("npm install -g --ignore-scripts @earendil-works/pi-coding-agent"),
-        background_upgrade: true,
         // `pi --help` only proves the binary starts; it does not validate
         // provider credentials or project trust, so do not show it as a
         // misleading "configuration available" health badge.
@@ -174,10 +174,15 @@ fn run_in_login_shell(cmd: &str) -> Result<String, String> {
     // Win 默认执行策略 Restricted 会拒跑它们，导致 `codex --version` 失败 → 误报"未安装"。
     // 前置 powershell_refresh_path()：从注册表重建完整 PATH，与 resume 路径同款解析，
     // 免得检测吃的是 GUI 进程继承的残缺 PATH、和 resume 实际会跑的命令不一致。
+    // -NonInteractive：官方安装脚本在失败路径上会 `Read-Host "Press Enter to exit"`
+    //（Kimi 的 install.ps1 就有）。没有这个开关的话一次失败的升级不是报错返回，
+    // 而是让整个命令永远等在那里，界面上表现为按钮一直转圈。带上它 Read-Host 直接抛，
+    // 脚本自己的 catch 吞掉后正常 exit 1，我们拿到的是错误信息。
     let full_cmd = format!("{}; {cmd}", crate::agent_command::powershell_refresh_path());
     let out = Command::new(crate::agent_command::windows_powershell_exe())
         .args([
             "-NoLogo",
+            "-NonInteractive",
             "-ExecutionPolicy",
             "Bypass",
             "-Command",
@@ -271,6 +276,34 @@ fn fetch_manifest_latest(manifest_url_template: &str) -> Result<String, String> 
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
             .ok_or_else(|| "missing version field".into())
+    };
+    match try_once() {
+        Ok(v) => Ok(v),
+        Err(_) => {
+            std::thread::sleep(Duration::from_millis(500));
+            try_once()
+        }
+    }
+}
+
+/// Fetch the latest version from an endpoint that returns the bare version
+/// string (e.g. `0.43.1\n`), not a JSON document.
+///
+/// Kimi publishes `…/kimi-code/latest` this way and its own install script
+/// reads exactly this URL, so it is the same source the vendor upgrades from.
+/// The endpoint 302s to a CDN and answers with `text/html`, so the body is
+/// taken as text and the version is extracted rather than parsed as JSON.
+fn fetch_plain_latest(url: &str) -> Result<String, String> {
+    let try_once = || -> Result<String, String> {
+        let body = ureq::get(url)
+            .timeout(Duration::from_secs(10))
+            .call()
+            .map_err(|e| format!("latest endpoint: {e}"))?
+            .into_string()
+            .map_err(|e| format!("read body: {e}"))?;
+        // Guard against a CDN error page arriving with a 200: only accept a
+        // body that actually contains a version, never the raw text.
+        extract_version(&body).ok_or_else(|| "no version in response".to_string())
     };
     match try_once() {
         Ok(v) => Ok(v),
@@ -549,11 +582,7 @@ fn check_cli_version(spec: &CliSpec) -> CliVersionInfo {
     let installed = current.is_some();
     let health = check_health(spec, installed);
     // Use npm registry for npm-based CLIs, manifest URL for others (e.g. agy).
-    // Kimi owns its update flow and `kimi upgrade` may prompt, so the viewer
-    // intentionally has no version source or background-upgrade action for it.
-    let (latest_version, error, command_update_available) = if !spec.background_upgrade {
-        (None, None, None)
-    } else {
+    let (latest_version, error, command_update_available) = {
         let (latest, command_update_available) = if spec.name == "grok" {
             match fetch_grok_latest_info() {
                 Ok(info) => (Ok(info.latest_version), info.update_available),
@@ -568,6 +597,8 @@ fn check_cli_version(spec: &CliSpec) -> CliVersionInfo {
             (fetch_npm_latest(spec.npm_package), None)
         } else if let Some(manifest_url) = spec.manifest_url {
             (fetch_manifest_latest(manifest_url), None)
+        } else if let Some(latest_url) = spec.latest_url {
+            (fetch_plain_latest(latest_url), None)
         } else {
             (Err("no version source configured".into()), None)
         };
@@ -576,12 +607,11 @@ fn check_cli_version(spec: &CliSpec) -> CliVersionInfo {
             Err(e) => (None, Some(e), command_update_available),
         }
     };
-    let upgradable = spec.background_upgrade
-        && is_upgradable(
-            current.as_deref(),
-            latest_version.as_deref(),
-            command_update_available,
-        );
+    let upgradable = is_upgradable(
+        current.as_deref(),
+        latest_version.as_deref(),
+        command_update_available,
+    );
     CliVersionInfo {
         cli: spec.name.to_string(),
         npm_package: spec.npm_package.to_string(),
@@ -741,6 +771,19 @@ fn resolve_upgrade_cmd(spec: &CliSpec) -> String {
         return builtin.to_string();
     }
 
+    // Standalone CLIs (no brew formula, no npm package, no update subcommand)
+    // upgrade by re-running their official installer: it resolves the latest
+    // version itself and replaces the binary in place. Without this the line
+    // below would build `npm install -g @latest`, which installs nothing.
+    #[cfg(unix)]
+    if let Some(cmd) = spec.install_unix {
+        return cmd.to_string();
+    }
+    #[cfg(windows)]
+    if let Some(cmd) = spec.install_windows {
+        return cmd.to_string();
+    }
+
     format!("npm install -g {}@latest", spec.npm_package)
 }
 
@@ -778,14 +821,6 @@ fn extract_fallback_cmd(output: &str) -> Option<String> {
 
 pub fn upgrade_single(cli_name: &str) -> Result<CliUpgradeResult, String> {
     let spec = find_spec(cli_name)?;
-    if !spec.background_upgrade {
-        return Ok(CliUpgradeResult {
-            cli: spec.name.to_string(),
-            success: false,
-            new_version: None,
-            error: Some("background_upgrade_unsupported".into()),
-        });
-    }
     let prev_version = get_installed_version(spec);
     let cmd = resolve_upgrade_cmd(spec);
     match run_in_login_shell(&cmd) {
@@ -1066,7 +1101,7 @@ mod tests {
     }
 
     #[test]
-    fn kimi_cli_has_official_installer_and_never_background_upgrades() {
+    fn kimi_cli_has_official_installer_and_a_plain_text_latest_endpoint() {
         let kimi = find_spec("kimi").unwrap();
         assert_eq!(kimi.binary, "kimi");
         assert_eq!(
@@ -1077,12 +1112,60 @@ mod tests {
             kimi.install_windows,
             Some("irm https://code.kimi.com/kimi-code/install.ps1 | iex")
         );
-        assert!(!kimi.background_upgrade);
+        // Kimi ships no npm package and no update subcommand, so the version
+        // source is its plain-text `latest` endpoint and the upgrade action is
+        // the installer itself.
+        assert_eq!(
+            kimi.latest_url,
+            Some("https://code.kimi.com/kimi-code/latest")
+        );
+        assert_eq!(kimi.npm_package, "");
+        assert_eq!(kimi.builtin_update, None);
         assert_eq!(kimi.health_check_command, Some("kimi doctor"));
     }
 
+    /// 没有 npm 包、没有 brew formula、也没有 update 子命令的 CLI（kimi 就是），
+    /// 升级只能靠重跑官方安装脚本。这条钉的是兜底顺序：漏了这一档的话
+    /// `resolve_upgrade_cmd` 会拼出 `npm install -g @latest` —— 一条语法合法、
+    /// 跑起来什么都不装、还会报成功的命令。
     #[test]
-    fn pi_cli_supports_background_upgrade_and_uses_native_update_fallback() {
+    fn standalone_cli_without_npm_package_upgrades_via_its_installer() {
+        let kimi = find_spec("kimi").unwrap();
+        assert_eq!(kimi.npm_package, "");
+        assert_eq!(kimi.brew_upgrade, None);
+        assert_eq!(kimi.builtin_update, None);
+
+        let cmd = resolve_upgrade_cmd(kimi);
+        #[cfg(unix)]
+        assert_eq!(cmd, kimi.install_unix.unwrap());
+        #[cfg(windows)]
+        assert_eq!(cmd, kimi.install_windows.unwrap());
+        assert!(
+            !cmd.contains("npm install -g @latest"),
+            "兜底不能拼出装不了东西的空包名命令：{cmd}"
+        );
+    }
+
+    /// Kimi 的版本源是个纯文本端点，不是 JSON —— 一旦对方改成返回 JSON、
+    /// 或者把 `latest` 挪走，`fetch_plain_latest` 会静默退化成"查不到最新版"，
+    /// 面板上只是少了个升级提示，没人会注意到。这条把契约钉住：出问题时直接告诉你
+    /// 是"对面改了"，而不是让你去翻为什么 kimi 不提示升级了。
+    ///
+    /// 手工跑：`cargo test --lib kimi_latest -- --ignored --nocapture`
+    #[test]
+    #[ignore = "hits the network"]
+    fn the_live_kimi_latest_endpoint_still_answers_with_a_bare_version() {
+        let spec = find_spec("kimi").unwrap();
+        let url = spec.latest_url.expect("kimi should have a latest endpoint");
+        let got = fetch_plain_latest(url).expect("latest endpoint should answer");
+        assert!(
+            got.split('.').count() == 3 && got.split('.').all(|p| p.parse::<u32>().is_ok()),
+            "期望形如 0.43.1 的三段版本号，实际拿到 {got:?}"
+        );
+    }
+
+    #[test]
+    fn pi_cli_uses_native_update_fallback() {
         let pi = find_spec("pi").unwrap();
         assert_eq!(pi.npm_package, "@earendil-works/pi-coding-agent");
         assert_eq!(
@@ -1090,7 +1173,6 @@ mod tests {
             Some("curl -fsSL https://pi.dev/install.sh | sh")
         );
         assert_eq!(pi.builtin_update, Some("pi update self"));
-        assert!(pi.background_upgrade);
         assert_eq!(pi.health_check_command, None);
     }
 
