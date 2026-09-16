@@ -21,7 +21,10 @@ import {
   toolsQuery,
   toolsTab,
   clampToolsListWidth,
+  effectiveToolsProject,
   selectFirstRow,
+  setToolsProject,
+  toolsPickedProject,
   setToolsListWidth,
   shownOfTotal,
   toolsListWidth,
@@ -951,5 +954,40 @@ describe('健康条上的总数', () => {
 
   it('什么都没扫到时不出现 0/0', () => {
     expect(shownOfTotal(0, 0)).toBe('0')
+  })
+})
+
+describe('工具页作用在哪个项目', () => {
+  const KEY = 'toolsProject:v1'
+
+  beforeEach(() => {
+    localStorage.removeItem(KEY)
+    toolsPickedProject.value = null
+  })
+
+  it('没挑过就跟着侧边栏当前项目', () => {
+    expect(effectiveToolsProject(null, '/Users/u/work/app')).toBe('/Users/u/work/app')
+  })
+
+  it('挑过就用挑的 —— 侧边栏后来换了项目也不跟着跑', () => {
+    expect(effectiveToolsProject('/Users/u/work/api', '/Users/u/work/app')).toBe('/Users/u/work/api')
+  })
+
+  it('两个都没有才是 undefined，那时后端只扫用户级', () => {
+    expect(effectiveToolsProject(null, undefined)).toBeUndefined()
+    expect(effectiveToolsProject(null, null)).toBeUndefined()
+  })
+
+  it('挑完落盘 —— 侧边栏那个选中态不持久化，不记在这儿重开 app 就又只剩用户级了', () => {
+    setToolsProject('/Users/u/work/app')
+    expect(localStorage.getItem(KEY)).toBe('/Users/u/work/app')
+    expect(toolsPickedProject.value).toBe('/Users/u/work/app')
+  })
+
+  it('选回「跟着侧边栏」要把那条记录删掉，不是写一个空串', () => {
+    setToolsProject('/Users/u/work/app')
+    setToolsProject(null)
+    expect(localStorage.getItem(KEY)).toBeNull()
+    expect(toolsPickedProject.value).toBeNull()
   })
 })

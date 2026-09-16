@@ -79,7 +79,7 @@ import SessionsTopbar from './components/topbar/SessionsTopbar.vue'
 import ToolsTopbar from './components/topbar/ToolsTopbar.vue'
 import ToolsNav from './components/ToolsNav.vue'
 import ToolsView from './views/ToolsView.vue'
-import { TAB_LABEL, clampToolsListWidth, resetToolsPanel, setToolsListWidth, toolsListWidth, toolsTab } from './toolsPanel'
+import { TAB_LABEL, clampToolsListWidth, effectiveToolsProject, resetToolsPanel, setToolsListWidth, toolsListWidth, toolsPickedProject, toolsTab } from './toolsPanel'
 import TrashView from './views/TrashView.vue'
 // 按需视图懒加载：StatsView 拖着重量级图表库 @antv/g2，PricingView / ExportHistoryView 也是
 // 二级页面 —— 都不进首屏主包，进对应页面时再拉各自的 chunk。
@@ -654,6 +654,16 @@ function focusPaneDir(dir: 'left' | 'right' | 'up' | 'down') {
 
 const activeProject = computed(() =>
   projects.value.find((p) => p.dirName === activeDir.value),
+)
+/**
+ * 工具管理作用在哪个项目。
+ *
+ * 不直接用 `activeProject`：那是侧边栏的选中态，`ref(null)` 起步且不落盘 —— 重开 app
+ * 之后没点过项目，工具页就一条项目级来源都扫不出来，而界面上不说明原因（用户报的
+ * 「安装版扫不出项目级」）。工具页自己记一份，顶栏的选择器改的就是它。
+ */
+const toolsCwd = computed(() =>
+  effectiveToolsProject(toolsPickedProject.value, activeProject.value?.displayPath),
 )
 const activeAgentLabel = computed(() => agentLabel(agent.value))
 const topbarContextTitle = computed(() => {
@@ -4627,7 +4637,12 @@ provide<PaneActions>(PaneActionsKey, {
         </div>
         <!-- 工具管理盖在整个主区上，顶栏自然也归它：搜索 + 关闭。排第一，
              否则底下那层视图的工具栏会从面板后面露出来。 -->
-        <ToolsTopbar v-if="showTools" @close="showTools = false" />
+        <ToolsTopbar
+          v-if="showTools"
+          :projects="projects"
+          :sidebar-cwd="activeProject?.displayPath"
+          @close="showTools = false"
+        />
         <!-- StatsView 自带顶部控制条，这里就让出空间（保持拖动区域）。
              showStats 优先级要高于 openSession，否则进入会话统计模式时
              还会渲染 ChatTopbar 的「会话统计」按钮，造成视觉重复。 -->
@@ -4702,7 +4717,7 @@ provide<PaneActions>(PaneActionsKey, {
         <!-- 回合信号的装卸入口一直在设置的 Hooks 那一页；Hooks 面板上只读，
              要撤掉就把人送过去，不在两处各开一个开关。 -->
         <ToolsView
-          :cwd="activeProject?.displayPath"
+          :cwd="toolsCwd"
           @notify="notify"
           @open-settings="() => { settingsTab = 'hooks'; showSettings = true }"
         />

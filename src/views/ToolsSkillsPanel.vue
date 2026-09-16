@@ -69,6 +69,8 @@ import {
   effectiveMainStore,
   inMainStore,
   extraStores,
+  linkedIntoProject,
+  projectSkillsStore,
   removeExtraStore,
   repairPlan,
   repairTarget,
@@ -570,6 +572,51 @@ function deleteBody(path: string) {
 function unlinkRef(path: string) {
   void propose(`unlink:${path}`, t('tools.skills.action.unlinkRef'), (dry) =>
     api.toolsUnlinkRef(path, dry),
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 链接到项目
+// ---------------------------------------------------------------------------
+//
+// 主 store 里的一个全局 skill，链一条进当前项目的 `.claude/skills`，让这个仓库里的
+// agent 也读得到；再点一下拆掉。
+//
+// 后端没有新命令 —— 用的就是 agent 那排开关同一个 `tools_toggle_skill`：它做的事一直
+// 是「在某个 store 里建/拆一条指向真身的链接」，store 传哪都行，从来没限定必须是用户级
+// 目录。顺带白拿它已有的几条保障：目录不存在先建、那个位置被别的东西占着就报错不覆盖、
+// 已经指着同一份就什么都不做、以及「只拆链接、绝不删实体内容」。
+
+/** 链接落脚的目录。没选项目时为 `null`（扫描结果里一条 project 级都没有）。 */
+const projectStore = computed(() => projectSkillsStore(scan.value))
+
+/** 选中的这个 skill 已经链进去了没有。 */
+const linkedHere = computed(() => linkedIntoProject(selected.value, projectStore.value))
+
+/** 按钮上的字 / 提示要分「没选项目」「还没链」「已经链了」三种，各自的理由不一样。 */
+const projectLinkTip = computed(() => {
+  if (!projectStore.value) return t('tools.skills.action.linkProjectNoneTip')
+  return linkedHere.value
+    ? t('tools.skills.action.unlinkProjectTip', { path: short(projectStore.value) })
+    : t('tools.skills.action.linkProjectTip', { path: short(projectStore.value) })
+})
+
+function toggleProjectLink() {
+  const entry = selected.value
+  const store = projectStore.value
+  if (!entry || !store) return
+  const on = !linkedHere.value
+  // 拆的时候不需要 body；建的时候必须有一份实体内容可指。全是死链的 skill 链过去
+  // 只会在项目里再多一条死链。
+  const body = on ? repairTarget(entry, main.value) : null
+  if (on && !body) {
+    emit('notify', t('tools.skills.noBody'), true)
+    return
+  }
+  void propose(
+    'linkProject',
+    on ? t('tools.skills.action.linkProject') : t('tools.skills.action.unlinkProject'),
+    (dry) => api.toolsToggleSkill(entry.name, store, body, on, dry),
   )
 }
 
@@ -1436,6 +1483,20 @@ function rowSubtitle(s: SkillEntry): string {
               <IconDownload v-else />
               {{ t('tools.skills.action.update') }}
             </button>
+            <!-- 把主 store 里这份全局 skill 链进当前项目的 .claude/skills；再点一下拆掉。
+                 没选项目时禁用而不是隐藏 —— 藏起来的话，想用这个功能的人只会以为没有。 -->
+            <button
+              type="button"
+              class="skill-head-btn"
+              :class="{ running: pending === 'linkProject', on: linkedHere }"
+              :disabled="busy || !projectStore"
+              v-tooltip="projectLinkTip"
+              @click="toggleProjectLink"
+            >
+              <span v-if="pending === 'linkProject'" class="chip-spinner" aria-hidden="true" />
+              <IconLink v-else />
+              {{ linkedHere ? t('tools.skills.action.unlinkProject') : t('tools.skills.action.linkProject') }}
+            </button>
             <!-- 开在实体目录上；没有实体内容（全是死链）时没得可编辑。 -->
             <button
               type="button"
@@ -1994,6 +2055,13 @@ function rowSubtitle(s: SkillEntry): string {
 }
 .skill-head-btn.icon {
   padding: 4px 7px;
+}
+/* 已经链进项目了：按钮转成「已生效」的样子，和旁边那些「去做某件事」的按钮区分开 ——
+   不然用户分不清这一下是要链还是要拆，只能靠读字。 */
+.skill-head-btn.on {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .skill-head-btn.danger {
   color: var(--danger);

@@ -271,6 +271,39 @@ export function repairTarget(entry: SkillEntry, main: string | null): string | n
 }
 
 // ---------------------------------------------------------------------------
+// 链接到项目
+// ---------------------------------------------------------------------------
+
+/**
+ * 主 store 里的一个 skill 要链进项目时，链接建在哪。
+ *
+ * 取的是**扫描结果里那条 project 级、且 claude 读得到的 store**，不自己拼
+ * `<项目>/.claude/skills`：后端是按 git root（`util::project_root`）算的项目根，选中的
+ * 目录若是仓库里的子目录，自己拼会拼到一个 agent 根本不读的位置，链接建了也白建。
+ *
+ * 那条 store 在磁盘上不存在没关系（扫描照样会把它列出来，`exists: false`），
+ * 后端 `toggle` 会先把目录建出来。
+ *
+ * 没选项目时扫描结果里一条 project 级都没有 → 返回 `null`，按钮据此禁用。
+ */
+export function projectSkillsStore(scan: SkillScan | null): string | null {
+  if (!scan) return null
+  const hit = scan.stores.find((s) => s.scope === 'project' && s.agents.includes('claude'))
+  return hit ? hit.path : null
+}
+
+/**
+ * 这个 skill 是不是已经链进那个项目目录了。
+ *
+ * 判据是「有没有一条引用就落在那个 store 里」，不是「项目里有没有同名的东西」——
+ * 同名但指着别处的那种，`toggle` 会自己拒绝并说清楚，不该在这儿抢答。
+ */
+export function linkedIntoProject(entry: SkillEntry | null, store: string | null): boolean {
+  if (!entry || !store) return false
+  return entry.refs.some((r) => r.store === store)
+}
+
+// ---------------------------------------------------------------------------
 // 从远端更新
 // ---------------------------------------------------------------------------
 

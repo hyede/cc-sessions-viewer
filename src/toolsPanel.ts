@@ -230,6 +230,55 @@ export function shownOfTotal(shown: number, total: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// 工具页作用在哪个项目
+// ---------------------------------------------------------------------------
+
+const PROJECT_KEY = 'toolsProject:v1'
+
+/**
+ * 用户在工具页显式挑的项目（绝对路径）。`null` = 没挑过，跟着侧边栏当前项目走。
+ *
+ * **必须落盘。** 项目级的 skills / MCP / hooks 全靠这个路径拼出来（后端拿不到 cwd
+ * 就一条项目来源都不生成），而侧边栏那个选中态是 `ref(null)` 且不持久化 —— 重开
+ * app 之后不先去点一下项目，工具页就只剩用户级，而页面上没有任何地方说明原因。
+ * 用户报的「安装版扫不出项目级」就是这么来的。
+ */
+export const toolsPickedProject = ref<string | null>(loadPickedProject())
+
+function loadPickedProject(): string | null {
+  try {
+    const raw = localStorage.getItem(PROJECT_KEY)
+    return raw && raw.trim() !== '' ? raw : null
+  } catch {
+    return null
+  }
+}
+
+/** 挑一个项目（`null` = 回到「跟着侧边栏」）。 */
+export function setToolsProject(path: string | null) {
+  toolsPickedProject.value = path
+  try {
+    if (path) localStorage.setItem(PROJECT_KEY, path)
+    else localStorage.removeItem(PROJECT_KEY)
+  } catch {
+    /* 隐私模式写不进无妨 —— 只是这一次不记住 */
+  }
+}
+
+/**
+ * 工具页这一刻作用的项目路径。
+ *
+ * 挑过就用挑的，没挑过跟着侧边栏。两个都没有才是 `undefined`，那时后端只扫用户级。
+ * 做成纯函数是为了能测：这条规则错了，整个工具页扫的就是别的项目，而界面上看不出来。
+ */
+export function effectiveToolsProject(
+  picked: string | null,
+  sidebar: string | undefined | null,
+): string | undefined {
+  return picked ?? sidebar ?? undefined
+}
+
+// ---------------------------------------------------------------------------
 // 列表栏宽度
 // ---------------------------------------------------------------------------
 

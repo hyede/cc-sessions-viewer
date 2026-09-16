@@ -1063,6 +1063,10 @@ export default {
 
   // 工具管理浮层
   'tools.title': '工具管理',
+  'tools.project.title': '扫描哪个项目',
+  'tools.project.follow': '跟着侧边栏',
+  'tools.project.none': '未选项目',
+  'tools.project.noneTip': '没有选中项目，只扫了用户级。挑一个才能看到它的项目级配置。',
   'tools.close': '关闭（Esc）',
   'tools.back': '返回',
   'tools.tab.mcp': 'MCP',
@@ -1547,6 +1551,11 @@ export default {
   'tools.skills.action.adoptAllTip': '把下面列表里 {k} 条 skill 的 {n} 份实体内容搬进主 store，原处全换成链接。一条 skill 在三个地方各存了一份就要搬三次，所以份数比条数多。跟着当前的筛选和搜索走，想搬全部就把筛选清掉。同名但内容不一样的会先问你留哪份。',
   'tools.skills.action.repair': '修链接',
   'tools.skills.action.repairTip': '把断链重指到内容上，多跳链压成一跳。',
+  'tools.skills.action.linkProject': '链接到项目',
+  'tools.skills.action.linkProjectTip': '在 {path} 里建一条指向主 store 的链接，让这个项目里的 agent 也读得到它。',
+  'tools.skills.action.linkProjectNoneTip': '先在顶栏挑一个项目，才知道要链到哪儿。',
+  'tools.skills.action.unlinkProject': '取消项目链接',
+  'tools.skills.action.unlinkProjectTip': '拆掉 {path} 里那条链接。主 store 里的内容一个字节都不动。',
   'tools.skills.action.delete': '删除',
   'tools.skills.action.resync': '立即同步',
   'tools.skills.action.resyncTip': '按 {source} 现在的内容把这份副本重拷一遍。原内容和源同源，不会丢你写的东西。',

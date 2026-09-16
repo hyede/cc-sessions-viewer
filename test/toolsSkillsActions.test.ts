@@ -12,9 +12,11 @@ import {
   extraStores,
   inMainStore,
   incompleteSteps,
+  linkedIntoProject,
   isDestructive,
   mainStore,
   needsRepair,
+  projectSkillsStore,
   removeExtraStore,
   repairPlan,
   repairTarget,
@@ -459,5 +461,74 @@ describe('从远端更新', () => {
       'tools.skills.update.current',
       'tools.skills.update.overwrite',
     ])
+  })
+})
+
+describe('链接到项目', () => {
+  const PROJ = '/Users/u/work/app'
+
+  it('取的是项目级里 claude 读得到的那个 store', () => {
+    const got = projectSkillsStore(
+      scan({
+        stores: [
+          store({ path: MAIN, realDirs: 39 }),
+          store({ path: `${PROJ}/.agents/skills`, scope: 'project', agents: ['grok', 'pi'] }),
+          store({ path: `${PROJ}/.claude/skills`, scope: 'project', agents: ['claude', 'grok'] }),
+        ],
+      }),
+    )
+    expect(got).toBe(`${PROJ}/.claude/skills`)
+  })
+
+  it('那个目录还不存在也照样挑得出来 —— 建目录是后端的事', () => {
+    const got = projectSkillsStore(
+      scan({
+        stores: [
+          store({
+            path: `${PROJ}/.claude/skills`,
+            scope: 'project',
+            agents: ['claude'],
+            exists: false,
+            total: 0,
+            realDirs: 0,
+          }),
+        ],
+      }),
+    )
+    expect(got).toBe(`${PROJ}/.claude/skills`)
+  })
+
+  it('没选项目时没有项目级 store，按钮据此禁用', () => {
+    expect(projectSkillsStore(scan())).toBeNull()
+    expect(projectSkillsStore(null)).toBeNull()
+  })
+
+  it('用户级的 claude 目录不算 —— 那是「启用」，不是「链进项目」', () => {
+    const got = projectSkillsStore(
+      scan({ stores: [store({ path: '/home/u/.claude/skills', agents: ['claude'] })] }),
+    )
+    expect(got).toBeNull()
+  })
+
+  it('有一条引用落在那个 store 里就算已经链过了', () => {
+    const e = entry({
+      name: 'archify',
+      refs: [ref({ path: `${PROJ}/.claude/skills/archify`, store: `${PROJ}/.claude/skills` })],
+    })
+    expect(linkedIntoProject(e, `${PROJ}/.claude/skills`)).toBe(true)
+  })
+
+  it('只在别处有引用不算', () => {
+    const e = entry({
+      name: 'archify',
+      refs: [ref({ path: '/home/u/.claude/skills/archify', store: '/home/u/.claude/skills' })],
+    })
+    expect(linkedIntoProject(e, `${PROJ}/.claude/skills`)).toBe(false)
+  })
+
+  it('没选项目 / 没选中 skill 一律当没链过', () => {
+    const e = entry({ name: 'archify', refs: [] })
+    expect(linkedIntoProject(e, null)).toBe(false)
+    expect(linkedIntoProject(null, `${PROJ}/.claude/skills`)).toBe(false)
   })
 })

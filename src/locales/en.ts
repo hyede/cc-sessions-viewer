@@ -1077,6 +1077,10 @@ export default {
 
   // 工具管理浮层（tool management overlay）
   'tools.title': 'Tool management',
+  'tools.project.title': 'Project to scan',
+  'tools.project.follow': 'Follow the sidebar',
+  'tools.project.none': 'No project',
+  'tools.project.noneTip': 'No project selected, so only user-level entries are scanned. Pick one to see its project-level configuration.',
   'tools.close': 'Close (Esc)',
   'tools.back': 'Back',
   'tools.tab.mcp': 'MCP',
@@ -1561,6 +1565,11 @@ export default {
   'tools.skills.action.adoptAllTip': 'Moves {n} copies from {k} skills in the list below into the main store, leaving a link at each old location. A skill stored in three places needs three moves, which is why copies outnumber rows. Follows the current filter and search — clear them to cover everything. Same-name copies whose contents differ ask you first.',
   'tools.skills.action.repair': 'Repair links',
   'tools.skills.action.repairTip': 'Repoint broken links and flatten multi-hop chains onto the content.',
+  'tools.skills.action.linkProject': 'Link into project',
+  'tools.skills.action.linkProjectTip': 'Create a link in {path} pointing at the main store, so agents in this project can read it too.',
+  'tools.skills.action.linkProjectNoneTip': 'Pick a project in the top bar first — otherwise there is nowhere to link it.',
+  'tools.skills.action.unlinkProject': 'Unlink from project',
+  'tools.skills.action.unlinkProjectTip': 'Remove the link in {path}. The content in the main store is left untouched.',
   'tools.skills.action.delete': 'Delete',
   'tools.skills.action.resync': 'Sync now',
   'tools.skills.action.resyncTip': 'Re-copy this from {source} as it is now. What gets replaced came from that same source, so none of your own writing is lost.',

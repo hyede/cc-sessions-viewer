@@ -1075,6 +1075,10 @@ export default {
 
   // ツール管理オーバーレイ
   'tools.title': 'ツール管理',
+  'tools.project.title': 'スキャン対象のプロジェクト',
+  'tools.project.follow': 'サイドバーに追従',
+  'tools.project.none': 'プロジェクト未選択',
+  'tools.project.noneTip': 'プロジェクトが選択されていないため、ユーザーレベルのみをスキャンしています。選ぶとそのプロジェクトレベルの設定が表示されます。',
   'tools.close': '閉じる（Esc）',
   'tools.back': '戻る',
   'tools.tab.mcp': 'MCP',
@@ -1559,6 +1563,11 @@ export default {
   'tools.skills.action.adoptAllTip': '下のリストにある {k} 個の skill、計 {n} 件の実体をメイン store へ移し、元の場所はすべてリンクに置き換えます。1 つの skill が 3 か所にあれば 3 回移すので、件数は行数より多くなります。現在の絞り込みと検索に従うので、全部を対象にしたいときは絞り込みを解除してください。同名でも中身が違うものは先に確認します。',
   'tools.skills.action.repair': 'リンク修復',
   'tools.skills.action.repairTip': '切れたリンクを実体に向け直し、多段の連鎖を 1 ホップに縮めます。',
+  'tools.skills.action.linkProject': 'プロジェクトにリンク',
+  'tools.skills.action.linkProjectTip': '{path} にメインストアを指すリンクを作り、このプロジェクトの各エージェントからも読めるようにします。',
+  'tools.skills.action.linkProjectNoneTip': '先に上部バーでプロジェクトを選んでください。選ばないとリンク先が決まりません。',
+  'tools.skills.action.unlinkProject': 'プロジェクトのリンクを解除',
+  'tools.skills.action.unlinkProjectTip': '{path} のリンクを外します。メインストアの内容は一切変更しません。',
   'tools.skills.action.delete': '削除',
   'tools.skills.action.resync': '今すぐ同期',
   'tools.skills.action.resyncTip': '現在の {source} の内容で、このコピーを取り直します。置き換わるのは同じコピー元から来た内容なので、あなたが書いたものが失われることはありません。',
