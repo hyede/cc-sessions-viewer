@@ -1809,8 +1809,9 @@ fn lift_paths_from_text_with_options(
             // 正则可能从未加引号的 `@docs/foo/bar.md` 中间斜杠开始命中。只要当前
             // whitespace-delimited token 内已经出现 `@`，整个 token 都属于正文指令，跳过。
             let token_start = cleaned_text[..capture_start]
-                .rfind(char::is_whitespace)
-                .map(|index| index + 1)
+                .char_indices()
+                .rfind(|(_, ch)| ch.is_whitespace())
+                .map(|(index, ch)| index + ch.len_utf8())
                 .unwrap_or(0);
             if cleaned_text[token_start..capture_start].contains('@') {
                 continue;
@@ -2337,6 +2338,22 @@ Only after the original task is complete, process this follow-up in the order re
         let (blocks, remaining) = lift_paths_from_text(text);
         assert!(blocks.is_empty());
         assert_eq!(remaining, text);
+    }
+
+    #[test]
+    fn test_lift_path_after_multibyte_whitespace() {
+        for whitespace in ['\u{00a0}', '\u{2003}'] {
+            let text = format!("请查看{whitespace}/var/folders/report.txt 的内容");
+
+            let (blocks, remaining) = lift_paths_from_text(&text);
+
+            assert_eq!(blocks.len(), 1);
+            assert_eq!(
+                blocks[0].file_path.as_deref(),
+                Some("/var/folders/report.txt")
+            );
+            assert_eq!(remaining, format!("请查看{whitespace} 的内容"));
+        }
     }
 
     #[test]
