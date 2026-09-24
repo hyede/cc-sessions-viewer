@@ -17,11 +17,18 @@ Tauri 应用的界面由**系统自带的 WKWebView** 渲染。macOS 12 的 WKWe
 | 正则 **lookbehind** `(?<=…)` / `(?<!…)`（Safari 16.4+ 才支持） | `src/format.ts`（本项目源码） | ❌ 不能，必须改写源码 |
 | 其它较新语法（类静态块、逻辑赋值等） | 依赖包（如 `@antv/g2`） | ✅ 能，构建目标降到 safari15 即可 |
 | 正则 lookbehind | `mermaid` 依赖包内部 | ❌ 不能，只能优雅降级 |
+| CSS **`color-mix()`**（Safari 16.2+ 才支持） | `src/style.css`（本项目源码） | ❌ 不能，且无法在构建期预计算，必须改写源码 |
 
 `src/format.ts` 是 `App.vue` 直接静态依赖（`import { shortName } from './format'`），
 所以它里面的 lookbehind 正则是**白屏的首要元凶**。
 
-## 二、具体修改（共 2 个文件）
+> `color-mix()` 不导致白屏（不在 JS 启动路径上），但会导致**局部渲染错误**：在本机
+> 上 `color-mix(in srgb, var(--text) N%, transparent)` 会被渲染成**纯 `var(--text)`
+> 实心色**（实测，而非按预期回退成透明）。凡是同时写了这种背景又写了 `color:
+> var(--text)` 的元素，就变成「深底 + 深字」（亮色主题）或「亮底 + 亮字」（暗色主题）
+> 的看不清文字的色块——设置页选中项的黑块就是这么来的。
+
+## 二、具体修改（共 3 个文件）
 
 ### 1. `src/format.ts` —— 改写两处 lookbehind 正则
 
@@ -70,6 +77,38 @@ Tauri 应用的界面由**系统自带的 WKWebView** 渲染。macOS 12 的 WKWe
 - `build.target` —— `tauri build` 生产构建产物的目标。
 
 设置后，`@antv/g2`（StatsView 统计图表）等依赖能被成功降级解析并正常工作。
+
+### 3. `src/style.css` —— 把会「变黑块」的 `color-mix()` 背景换成实心 token
+
+`color-mix()` 无法在构建期降级（Lightning CSS/PostCSS 算不出「运行时 CSS 变量」的
+混合结果），必须在源码里规避。本机上它被渲染成纯 `var(--text)` 实心色，所以**只需要
+处理「背景用了 `color-mix(... var(--text) ...)`、同时又有文字」的元素**——其余
+`color-mix()`（滚动条、边框、遮罩等纯装饰、不压文字）保持不动。
+
+用主题自带的实心 token 等价替换（`--surface-active` ≈ 8% 混合，`--surface-hover`
+≈ 4% 混合，两者在各主题里都有明暗自适应的实心值）：
+
+```diff
+ .set-nav-item:hover {
+-  background: color-mix(in srgb, var(--text) 4%, transparent);
++  background: var(--surface-hover);
+   color: var(--text);
+ }
+ .set-nav-item.active {
+-  background: color-mix(in srgb, var(--text) 8%, transparent);
++  background: var(--surface-active);
+   color: var(--text);
+   font-weight: 600;
+ }
+```
+
+同样处理的还有三处同类模式：
+
+- `.bubble code`（聊天里的内联代码）：`color-mix(... 8% ...)` → `var(--surface-active)`，
+  否则内联代码变成黑底黑字看不清。
+- `.theme-dark .seg-wide button.active`、`.theme-dark .segmented button.active`
+  （暗色主题下的分段控件选中态）：`color-mix(... 8% ...)` → `var(--surface-active)`，
+  否则选中项在暗色下变成亮底亮字。
 
 ## 三、已知限制：mermaid 图
 
