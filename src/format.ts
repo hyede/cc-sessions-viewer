@@ -157,9 +157,9 @@ function inline(text: string): string {
     const idx = codes.push(`MATH:${expr}`) - 1
     return `${SENT}CODE${idx}${SENT}`
   })
-  s = s.replace(/(?<!\\)\\\(([^\n]+?)\\\)/g, (_m, expr) => {
+  s = s.replace(/(^|[^\\])\\\(([^\n]+?)\\\)/g, (_m, pre, expr) => {
     const idx = codes.push(`MATH:${expr}`) - 1
-    return `${SENT}CODE${idx}${SENT}`
+    return `${pre}${SENT}CODE${idx}${SENT}`
   })
   // 行内代码 ~~~code~~~（opencode 用的非标准语法）
   s = s.replace(/~~~([^~\n]+?)~~~/g, (_m, code) => {
@@ -184,7 +184,7 @@ function inline(text: string): string {
   s = escapeHtml(s)
   s = s.replace(URL_RE, (url) => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`)
   s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-  s = s.replace(/(?<![*\\])\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>')
+  s = s.replace(/(^|[^*\\])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
   s = s.replace(/~~([^~\n]+)~~/g, '<del>$1</del>')
   s = s.replace(/==([^=\n]+)==/g, '<mark class="md-mark">$1</mark>')
   s = s.replace(/\^([^\^\s]+)\^/g, '<sup>$1</sup>')

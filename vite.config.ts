@@ -56,5 +56,12 @@ export default defineConfig(async ({ command, mode }) => {
       ],
     },
   },
+  // macOS 12 自带 WebKit 是 Safari 15.6，解析不了依赖里较新的 JS 语法（类静态块、
+  // 逻辑赋值等），会整页白屏。把 dev 预打包 / 生产构建的目标降到 safari15，让 esbuild
+  // 把可降级语法转掉。注意：正则 lookbehind 无法被 esbuild 转写，那类代码需在源码里
+  // 手动规避（见 src/format.ts）。
+  esbuild: { target: "safari15" },
+  optimizeDeps: { esbuildOptions: { target: "safari15" } },
+  build: { target: "safari15" },
   };
 });
