@@ -7035,6 +7035,7 @@ body.is-tab-reordering * {
   outline: none;
 }
 .set-input:focus { border-color: var(--accent); }
+.set-input-narrow { width: 80px; }
 
 /* Background image picker: a tiny preview makes it clear which image is
    active without turning the settings page itself into a full-size sample. */

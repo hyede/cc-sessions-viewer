@@ -77,6 +77,7 @@ import {
   IconUpload,
   IconTerminal,
   IconWebhook,
+  IconBell,
   IconStar,
   IconFileImage,
   IconFolder,
@@ -92,6 +93,15 @@ import alipayQr from '../assets/alipay.jpg'
 import wechatQr from '../assets/wechat.jpg'
 import CliEnvironmentCheck from './CliEnvironmentCheck.vue'
 import * as api from '../api'
+import type { NotifyConfig, NotifyStatus } from '../api'
+import {
+  defaultNotifyConfig,
+  validateNotifyConfig,
+  toggleNotifyAgent,
+  clampNotifyConfig,
+  SUPPORTED_NOTIFY_AGENTS,
+  type NotifyAgent,
+} from '../notify'
 import {
   checkAppUpdate,
   downloadAndInstallUpdate,
@@ -133,7 +143,7 @@ import {
 import DesktopPetFallback from './DesktopPetFallback.vue'
 import PetAtlasPlayer from './PetAtlasPlayer.vue'
 
-type SettingsTab = 'general' | 'theme' | 'advanced' | 'storage' | 'hooks' | 'pet' | 'cli' | 'shortcuts' | 'updates'
+type SettingsTab = 'general' | 'theme' | 'advanced' | 'storage' | 'hooks' | 'notify' | 'pet' | 'cli' | 'shortcuts' | 'updates'
 const SETTINGS_ACTIVE_TAB_KEY = 'settingsActiveTab:v1'
 
 // 左侧导航：图标 + 文案，激活项高亮（参考 Claude 客户端设置面板）。
@@ -143,6 +153,7 @@ const navItems = [
   { id: 'advanced', icon: IconSliders, key: 'settings.tab.advanced' },
   { id: 'storage', icon: IconDatabase, key: 'settings.tab.storage' },
   { id: 'hooks', icon: IconWebhook, key: 'settings.tab.hooks' },
+  { id: 'notify', icon: IconBell, key: 'settings.tab.notify' },
   { id: 'pet', icon: IconStar, key: 'settings.tab.desktopPet' },
   { id: 'cli', icon: IconTerminal, key: 'settings.tab.cli' },
   { id: 'shortcuts', icon: IconKeyboard, key: 'settings.tab.shortcuts' },
@@ -740,6 +751,7 @@ onUnmounted(() => {
 
 onMounted(async () => {
   await loadDataDirectory()
+  void loadNotify()
   try {
     version.value = await api.appVersion()
   } catch {
@@ -1026,6 +1038,124 @@ async function refreshTurnHooks() {
   if (installingTurnHooks.value || turnHookStatusLoading.value) return
   turnHooksMsg.value = ''
   await refreshTurnHookStatus()
+}
+
+// ---- 第三方推送（Bark / Telegram）----
+// 配置持久化在后端 notify.json；hook 落点复用 hooks_write::apply 安全写入。
+// 隐私不变量：脚本只发 图标 + 类别 + agent + 项目名 + 时间，绝不发 prompt/输出/绝对路径。
+const notifyConfig = ref<NotifyConfig>(defaultNotifyConfig())
+const notifyStatus = ref<NotifyStatus | null>(null)
+const notifyBusy = ref(false)
+const notifyTesting = ref(false)
+const notifyMsg = ref('')
+const notifyMsgError = ref(false)
+const notifyInstalled = computed(() => !!notifyStatus.value?.installed)
+
+function setNotifyMsg(message: string, error = false) {
+  notifyMsg.value = message
+  notifyMsgError.value = error
+}
+
+async function loadNotify() {
+  try {
+    notifyConfig.value = await api.readNotifyConfig()
+    notifyStatus.value = await api.notifyHookStatus()
+  } catch (e) {
+    setNotifyMsg(t('notify.msg.loadFail', { e: String(e) }), true)
+  }
+}
+
+// 保存前先夹紧防抖参数；返回是否通过校验（未通过时把第一条问题作为提示）。
+async function persistNotify(): Promise<boolean> {
+  const issues = validateNotifyConfig(notifyConfig.value)
+  if (issues.length) {
+    setNotifyMsg(t(issues[0]), true)
+    return false
+  }
+  notifyConfig.value = clampNotifyConfig(notifyConfig.value)
+  await api.writeNotifyConfig(notifyConfig.value)
+  return true
+}
+
+async function saveNotify() {
+  if (notifyBusy.value) return
+  notifyBusy.value = true
+  try {
+    if (!(await persistNotify())) return
+    setNotifyMsg(t('notify.msg.saved'))
+    // 已安装时，改开关后重装以让落点跟上（install 会先清后装）。
+    if (notifyInstalled.value) {
+      await api.installNotifyHooks()
+      notifyStatus.value = await api.notifyHookStatus()
+    }
+  } catch (e) {
+    setNotifyMsg(t('notify.msg.saveFail', { e: String(e) }), true)
+  } finally {
+    notifyBusy.value = false
+  }
+}
+
+async function installNotify() {
+  if (notifyBusy.value) return
+  notifyBusy.value = true
+  try {
+    if (!(await persistNotify())) return
+    await api.installNotifyHooks()
+    notifyStatus.value = await api.notifyHookStatus()
+    setNotifyMsg(t('notify.msg.installed'))
+  } catch (e) {
+    setNotifyMsg(t('notify.msg.installFail', { e: String(e) }), true)
+  } finally {
+    notifyBusy.value = false
+  }
+}
+
+async function uninstallNotify() {
+  if (notifyBusy.value) return
+  notifyBusy.value = true
+  try {
+    await api.uninstallNotifyHooks()
+    notifyStatus.value = await api.notifyHookStatus()
+    setNotifyMsg(t('notify.msg.uninstalled'))
+  } catch (e) {
+    setNotifyMsg(t('notify.msg.uninstallFail', { e: String(e) }), true)
+  } finally {
+    notifyBusy.value = false
+  }
+}
+
+async function testNotify() {
+  if (notifyBusy.value || notifyTesting.value) return
+  notifyTesting.value = true
+  try {
+    if (!(await persistNotify())) return
+    const result = await api.notifySendTest()
+    const parts: string[] = []
+    if (result.bark) {
+      parts.push(result.bark.ok
+        ? t('notify.test.barkOk')
+        : t('notify.test.barkFail', { e: result.bark.error ?? '' }))
+    }
+    if (result.telegram) {
+      parts.push(result.telegram.ok
+        ? t('notify.test.tgOk')
+        : t('notify.test.tgFail', { e: result.telegram.error ?? '' }))
+    }
+    if (!parts.length) {
+      setNotifyMsg(t('notify.test.none'), true)
+    } else {
+      const failed = (result.bark && !result.bark.ok) || (result.telegram && !result.telegram.ok)
+      setNotifyMsg(parts.join('  ·  '), !!failed)
+    }
+  } catch (e) {
+    setNotifyMsg(t('notify.test.fail', { e: String(e) }), true)
+  } finally {
+    notifyTesting.value = false
+  }
+}
+
+function toggleNotifyAgentSel(agent: NotifyAgent) {
+  notifyConfig.value.agents = toggleNotifyAgent(notifyConfig.value, agent)
 }
 </script>
 
@@ -1955,6 +2085,246 @@ async function refreshTurnHooks() {
             </button>
             <div v-if="!configuredHookFiles.length" class="set-hook-files-empty">
               {{ turnHookStatusLoading ? t('settings.turnStatus.checking') : t('settings.hooks.empty') }}
+            </div>
+          </div>
+        </template>
+
+        <template v-else-if="activeTab === 'notify'">
+          <div class="set-hooks-head">
+            <h2 class="set-hooks-title">{{ t('notify.title') }}</h2>
+            <p class="set-hooks-desc">{{ t('notify.desc') }}</p>
+          </div>
+
+          <section class="set-hook-tracking-card">
+            <div class="set-hook-tracking-head">
+              <span class="set-hook-tracking-icon"><IconBell /></span>
+              <div class="set-hook-tracking-info">
+                <div class="set-hook-tracking-title">{{ t('notify.status.title') }}</div>
+                <p class="set-hook-tracking-desc">{{ t('notify.privacyNote') }}</p>
+              </div>
+              <span class="set-hooks-overall" :class="{ enabled: notifyInstalled }">
+                <span class="set-hooks-overall-dot" />
+                {{ notifyInstalled ? t('notify.status.installed') : t('notify.status.notInstalled') }}
+              </span>
+            </div>
+            <p
+              v-if="notifyMsg"
+              class="set-hooks-action-desc"
+              :class="{ error: notifyMsgError }"
+            >
+              {{ notifyMsg }}
+            </p>
+            <div class="set-hooks-action-btns">
+              <button
+                v-if="notifyInstalled"
+                class="btn set-icon-btn"
+                :disabled="notifyBusy"
+                v-tooltip="t('notify.uninstall')"
+                :aria-label="t('notify.uninstall')"
+                @click="uninstallNotify"
+              >
+                <IconTrash />
+              </button>
+              <button class="btn" :disabled="notifyBusy || notifyTesting" @click="testNotify">
+                {{ notifyTesting ? t('notify.testing') : t('notify.test') }}
+              </button>
+              <button class="btn" :disabled="notifyBusy" @click="saveNotify">
+                {{ t('notify.save') }}
+              </button>
+              <button class="btn primary" :disabled="notifyBusy" @click="installNotify">
+                {{ t('notify.install') }}
+              </button>
+            </div>
+          </section>
+          <div class="set-group">
+            <div class="set-group-head">
+              <div class="set-group-title">Bark</div>
+            </div>
+            <label
+              class="set-row set-row-clickable"
+              @click.prevent="notifyConfig.bark.enabled = !notifyConfig.bark.enabled"
+            >
+              <div class="set-row-text">
+                <div class="set-row-title">{{ t('notify.bark.enable') }}</div>
+                <p class="set-row-desc">{{ t('notify.bark.enableDesc') }}</p>
+              </div>
+              <span class="set-toggle-track set-row-control" :class="{ on: notifyConfig.bark.enabled }">
+                <span class="set-toggle-thumb" />
+              </span>
+            </label>
+            <template v-if="notifyConfig.bark.enabled">
+              <div class="set-row set-row-nosep">
+                <div class="set-row-text">
+                  <div class="set-row-title">{{ t('notify.bark.server') }}</div>
+                </div>
+                <div class="set-row-control">
+                  <input
+                    type="text"
+                    class="set-input"
+                    v-model="notifyConfig.bark.server"
+                    placeholder="https://api.day.app"
+                  >
+                </div>
+              </div>
+              <div class="set-row">
+                <div class="set-row-text">
+                  <div class="set-row-title">{{ t('notify.bark.key') }}</div>
+                </div>
+                <div class="set-row-control">
+                  <input
+                    type="text"
+                    class="set-input"
+                    v-model="notifyConfig.bark.key"
+                    :placeholder="t('notify.bark.keyPlaceholder')"
+                  >
+                </div>
+              </div>
+            </template>
+          </div>
+          <div class="set-group">
+            <div class="set-group-head">
+              <div class="set-group-title">Telegram</div>
+            </div>
+            <label
+              class="set-row set-row-clickable"
+              @click.prevent="notifyConfig.telegram.enabled = !notifyConfig.telegram.enabled"
+            >
+              <div class="set-row-text">
+                <div class="set-row-title">{{ t('notify.tg.enable') }}</div>
+                <p class="set-row-desc">{{ t('notify.tg.enableDesc') }}</p>
+              </div>
+              <span class="set-toggle-track set-row-control" :class="{ on: notifyConfig.telegram.enabled }">
+                <span class="set-toggle-thumb" />
+              </span>
+            </label>
+            <template v-if="notifyConfig.telegram.enabled">
+              <div class="set-row set-row-nosep">
+                <div class="set-row-text">
+                  <div class="set-row-title">{{ t('notify.tg.token') }}</div>
+                </div>
+                <div class="set-row-control">
+                  <input
+                    type="text"
+                    class="set-input"
+                    v-model="notifyConfig.telegram.botToken"
+                    :placeholder="t('notify.tg.tokenPlaceholder')"
+                  >
+                </div>
+              </div>
+              <div class="set-row">
+                <div class="set-row-text">
+                  <div class="set-row-title">{{ t('notify.tg.chatId') }}</div>
+                </div>
+                <div class="set-row-control">
+                  <input
+                    type="text"
+                    class="set-input"
+                    v-model="notifyConfig.telegram.chatId"
+                    :placeholder="t('notify.tg.chatIdPlaceholder')"
+                  >
+                </div>
+              </div>
+              <div class="set-row">
+                <div class="set-row-text">
+                  <div class="set-row-title">{{ t('notify.proxy') }}</div>
+                  <p class="set-row-desc">{{ t('notify.proxyDesc') }}</p>
+                </div>
+                <div class="set-row-control">
+                  <input
+                    type="text"
+                    class="set-input"
+                    v-model="notifyConfig.proxy"
+                    placeholder="http://127.0.0.1:7890"
+                  >
+                </div>
+              </div>
+            </template>
+          </div>
+          <div class="set-group">
+            <div class="set-group-head">
+              <div class="set-group-title">{{ t('notify.events.title') }}</div>
+            </div>
+            <label
+              class="set-row set-row-clickable"
+              @click.prevent="notifyConfig.notifyDone = !notifyConfig.notifyDone"
+            >
+              <div class="set-row-text">
+                <div class="set-row-title">{{ t('notify.events.done') }}</div>
+                <p class="set-row-desc">{{ t('notify.events.doneDesc') }}</p>
+              </div>
+              <span class="set-toggle-track set-row-control" :class="{ on: notifyConfig.notifyDone }">
+                <span class="set-toggle-thumb" />
+              </span>
+            </label>
+            <label
+              class="set-row set-row-clickable"
+              @click.prevent="notifyConfig.notifyAttention = !notifyConfig.notifyAttention"
+            >
+              <div class="set-row-text">
+                <div class="set-row-title">{{ t('notify.events.attention') }}</div>
+                <p class="set-row-desc">{{ t('notify.events.attentionDesc') }}</p>
+              </div>
+              <span class="set-toggle-track set-row-control" :class="{ on: notifyConfig.notifyAttention }">
+                <span class="set-toggle-thumb" />
+              </span>
+            </label>
+          </div>
+
+          <div class="set-group">
+            <div class="set-group-head">
+              <div class="set-group-title">{{ t('notify.agents.title') }}</div>
+            </div>
+            <label
+              v-for="a in SUPPORTED_NOTIFY_AGENTS"
+              :key="a"
+              class="set-row set-row-clickable"
+              @click.prevent="toggleNotifyAgentSel(a)"
+            >
+              <div class="set-row-text">
+                <div class="set-row-title set-row-title-icon">
+                  <component :is="agentIcons[a]" class="set-agent-toggle-icon" />
+                  {{ agentLabel(a) }}
+                </div>
+              </div>
+              <span class="set-toggle-track set-row-control" :class="{ on: notifyConfig.agents.includes(a) }">
+                <span class="set-toggle-thumb" />
+              </span>
+            </label>
+          </div>
+
+          <div class="set-group">
+            <div class="set-group-head">
+              <div class="set-group-title">{{ t('notify.batch.title') }}</div>
+            </div>
+            <div class="set-row set-row-nosep">
+              <div class="set-row-text">
+                <div class="set-row-title">{{ t('notify.batch.window') }}</div>
+                <p class="set-row-desc">{{ t('notify.batch.windowDesc') }}</p>
+              </div>
+              <div class="set-row-control">
+                <input
+                  type="number"
+                  min="0"
+                  max="300"
+                  class="set-input set-input-narrow"
+                  v-model.number="notifyConfig.windowSeconds"
+                >
+              </div>
+            </div>
+            <div class="set-row">
+              <div class="set-row-text">
+                <div class="set-row-title">{{ t('notify.batch.max') }}</div>
+                <p class="set-row-desc">{{ t('notify.batch.maxDesc') }}</p>
+              </div>
+              <div class="set-row-control">
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  class="set-input set-input-narrow"
+                  v-model.number="notifyConfig.maxBatch"
+                >
+              </div>
             </div>
           </div>
         </template>

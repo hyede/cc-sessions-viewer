@@ -386,6 +386,37 @@ export type TurnHookStatus = {
 export const installTurnHooks = () => invoke<TurnHookInstallResult>('install_turn_hooks')
 export const uninstallTurnHooks = () => invoke<TurnHookInstallResult>('uninstall_turn_hooks')
 export const turnHookStatus = () => invoke<TurnHookStatus>('turn_hook_status')
+
+export type BarkConfig = { enabled: boolean; server: string; key: string }
+export type TelegramConfig = { enabled: boolean; botToken: string; chatId: string }
+export type NotifyConfig = {
+  bark: BarkConfig
+  telegram: TelegramConfig
+  proxy: string
+  notifyDone: boolean
+  notifyAttention: boolean
+  agents: string[]
+  windowSeconds: number
+  maxBatch: number
+}
+export type NotifyStatus = {
+  installed: boolean
+  agents: string[]
+  scriptPresent: boolean
+}
+export type ChannelResult = { ok: boolean; error: string | null }
+export type NotifyTestResult = {
+  bark: ChannelResult | null
+  telegram: ChannelResult | null
+}
+
+export const readNotifyConfig = () => invoke<NotifyConfig>('read_notify_config')
+export const writeNotifyConfig = (config: NotifyConfig) =>
+  invoke<void>('write_notify_config', { config })
+export const installNotifyHooks = () => invoke<HookWriteReport>('install_notify_hooks')
+export const uninstallNotifyHooks = () => invoke<HookWriteReport>('uninstall_notify_hooks')
+export const notifyHookStatus = () => invoke<NotifyStatus>('notify_hook_status')
+export const notifySendTest = () => invoke<NotifyTestResult>('notify_send_test')
 export const claudeRuntimeInfo = () => invoke<ClaudeRuntimeInfo>('claude_runtime_info')
 export const codexRuntimeInfo = () => invoke<CodexRuntimeInfo>('codex_runtime_info')
 

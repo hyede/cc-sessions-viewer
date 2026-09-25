@@ -28,6 +28,7 @@ mod git;
 mod image_cache;
 #[cfg(target_os = "macos")]
 mod menu;
+mod notify;
 mod panic_log;
 mod process_tree;
 mod pty;
@@ -2661,6 +2662,12 @@ pub fn run() {
             tools::hooks::tools_scan_hooks,
             tools::hooks_write::tools_apply_hooks,
             tools::hooks_write::tools_test_hook,
+            notify::read_notify_config,
+            notify::write_notify_config,
+            notify::install_notify_hooks,
+            notify::uninstall_notify_hooks,
+            notify::notify_hook_status,
+            notify::notify_send_test,
             tools::mcp::tools_scan_mcp,
             tools::mcp_write::tools_apply_mcp,
             tools::registry::tools_registry_search,
