@@ -398,6 +398,7 @@ export type NotifyConfig = {
   agents: string[]
   windowSeconds: number
   maxBatch: number
+  pushWhen: 'always' | 'appHiddenOnly'
 }
 export type NotifyStatus = {
   installed: boolean
@@ -417,6 +418,8 @@ export const installNotifyHooks = () => invoke<HookWriteReport>('install_notify_
 export const uninstallNotifyHooks = () => invoke<HookWriteReport>('uninstall_notify_hooks')
 export const notifyHookStatus = () => invoke<NotifyStatus>('notify_hook_status')
 export const notifySendTest = () => invoke<NotifyTestResult>('notify_send_test')
+export const setNotifyVisibility = (visible: boolean) =>
+  invoke<void>('set_notify_visibility', { visible })
 export const claudeRuntimeInfo = () => invoke<ClaudeRuntimeInfo>('claude_runtime_info')
 export const codexRuntimeInfo = () => invoke<CodexRuntimeInfo>('codex_runtime_info')
 

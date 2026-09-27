@@ -22,6 +22,8 @@ const { URL } = require('url');
 const ICONS = { done: '✅', attention: '\u{1F514}', test: '\u{1F9EA}' };
 const STALE_LOCK_MS = 120000;
 const HTTP_TIMEOUT_MS = 8000;
+// `notify-presence.json` older than this ⇒ GUI not running (heartbeat is 10s).
+const PRESENCE_STALE_MS = 25000;
 
 function paths(dataDir) {
   return {
@@ -29,6 +31,7 @@ function paths(dataDir) {
     queue: path.join(dataDir, 'notify-queue.jsonl'),
     state: path.join(dataDir, 'notify-state.json'),
     lock: path.join(dataDir, 'notify-flush.lock'),
+    presence: path.join(dataDir, 'notify-presence.json'),
   };
 }
 
@@ -45,6 +48,18 @@ function channelsEnabled(cfg) {
   const tg =
     cfg.telegram && cfg.telegram.enabled && cfg.telegram.botToken && cfg.telegram.chatId;
   return { bark: !!bark, tg: !!tg };
+}
+
+// `pushWhen`: 'always' (default) pushes regardless; 'appHiddenOnly' pushes only
+// while the GUI is running (fresh heartbeat) but its window is not being looked
+// at. App closed / away from the computer ⇒ no push in that mode. Evaluated at
+// flush time so it reflects the freshest presence state.
+function pushAllowed(p, cfg) {
+  if ((cfg.pushWhen || 'always') !== 'appHiddenOnly') return true;
+  const pres = readJson(p.presence, null);
+  if (!pres || typeof pres.ts !== 'number') return false;
+  const running = Date.now() - pres.ts < PRESENCE_STALE_MS;
+  return running && !pres.visible;
 }
 
 // Extract only the project directory basename from the hook payload. Anything
@@ -272,6 +287,10 @@ async function flush(dataDir) {
     }
     const events = drainQueue(p.queue);
     if (!events.length) return;
+    // Suppressed by the pushWhen mode? The batch is already drained, so it is
+    // discarded — matches the in-app live notifications, which likewise drop
+    // events while the window is being looked at.
+    if (!pushAllowed(p, cfg)) return;
     const title = `cc-sessions-viewer (${events.length})`;
     await sendAll(cfg, title, formatBatch(events));
     fs.writeFileSync(p.state, JSON.stringify({ lastFlush: Date.now() }));

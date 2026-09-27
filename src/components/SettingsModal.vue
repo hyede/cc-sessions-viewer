@@ -2272,6 +2272,24 @@ function toggleNotifyAgentSel(agent: NotifyAgent) {
 
           <div class="set-group">
             <div class="set-group-head">
+              <div class="set-group-title">{{ t('notify.when.title') }}</div>
+            </div>
+            <label
+              class="set-row set-row-clickable"
+              @click.prevent="notifyConfig.pushWhen = notifyConfig.pushWhen === 'appHiddenOnly' ? 'always' : 'appHiddenOnly'"
+            >
+              <div class="set-row-text">
+                <div class="set-row-title">{{ t('notify.when.hiddenOnly') }}</div>
+                <p class="set-row-desc">{{ t('notify.when.hiddenOnlyDesc') }}</p>
+              </div>
+              <span class="set-toggle-track set-row-control" :class="{ on: notifyConfig.pushWhen === 'appHiddenOnly' }">
+                <span class="set-toggle-thumb" />
+              </span>
+            </label>
+          </div>
+
+          <div class="set-group">
+            <div class="set-group-head">
               <div class="set-group-title">{{ t('notify.agents.title') }}</div>
             </div>
             <label

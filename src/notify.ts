@@ -17,6 +17,7 @@ export function defaultNotifyConfig(): NotifyConfig {
     agents: ['claude', 'codex'],
     windowSeconds: 30,
     maxBatch: 5,
+    pushWhen: 'always',
   }
 }
 

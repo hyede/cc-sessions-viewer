@@ -9,7 +9,8 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +46,22 @@ pub struct TelegramConfig {
     chat_id: String,
 }
 
+/// 何时推送。`Always`（默认）= app 关着也推；`AppHiddenOnly` = 仅在 app 开着但
+/// 窗口没在看时推（离开电脑 / app 已退出则不推）。后者的判定靠 GUI 心跳写入的
+/// `notify-presence.json`，实际门槛在 `notify_hook.cjs` 里执行。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PushWhen {
+    Always,
+    AppHiddenOnly,
+}
+
+impl Default for PushWhen {
+    fn default() -> Self {
+        PushWhen::Always
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct NotifyConfig {
@@ -62,6 +79,8 @@ pub struct NotifyConfig {
     window_seconds: u32,
     /// 一批最多合并多少条。
     max_batch: u32,
+    /// 推送时机（全部 / 仅 app 后台）。
+    push_when: PushWhen,
 }
 
 impl Default for NotifyConfig {
@@ -75,6 +94,7 @@ impl Default for NotifyConfig {
             agents: vec!["claude".to_string(), "codex".to_string()],
             window_seconds: 30,
             max_batch: 5,
+            push_when: PushWhen::Always,
         }
     }
 }
@@ -92,6 +112,10 @@ fn config_path() -> Result<PathBuf, String> {
 
 fn script_path() -> Result<PathBuf, String> {
     Ok(data_dir()?.join(SCRIPT_NAME))
+}
+
+fn presence_path() -> Result<PathBuf, String> {
+    Ok(data_dir()?.join("notify-presence.json"))
 }
 
 fn read_config() -> NotifyConfig {
@@ -346,6 +370,52 @@ fn send_test() -> Result<NotifyTestResult, String> {
 }
 
 // ---------------------------------------------------------------------------
+// App 存活 / 可见性心跳（供 `pushWhen = appHiddenOnly` 判定）
+// ---------------------------------------------------------------------------
+//
+// GUI 通过 `set_notify_visibility` 上报窗口是否在看，并由后台线程每 10s 续一次
+// 时间戳，把 `{ visible, ts }` 写进 `notify-presence.json`。脚本据此判断 app 是否
+// 还开着（ts 新鲜）以及是否在前台（visible）。仅在 appHiddenOnly 模式下写文件 ——
+// always 模式脚本根本不读它，避免无谓的持续写盘。用后台线程而非 webview 定时器，
+// 是因为窗口被遮挡/最小化时 webview 的 JS 定时器会被系统节流甚至挂起。
+
+static APP_VISIBLE: AtomicBool = AtomicBool::new(true);
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn write_presence_if_enabled(visible: bool) {
+    if read_config().push_when != PushWhen::AppHiddenOnly {
+        return;
+    }
+    let Ok(path) = presence_path() else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let body = serde_json::json!({ "visible": visible, "ts": now_ms() });
+    if let Ok(bytes) = serde_json::to_vec(&body) {
+        let temporary = path.with_extension("json.tmp");
+        if fs::write(&temporary, bytes).is_ok() {
+            let _ = fs::rename(temporary, path);
+        }
+    }
+}
+
+/// 每 10s 续一次心跳，让脚本能区分「app 开着挂后台」与「app 已退出」。
+pub fn spawn_presence_heartbeat() {
+    std::thread::spawn(|| loop {
+        std::thread::sleep(Duration::from_secs(10));
+        write_presence_if_enabled(APP_VISIBLE.load(Ordering::Relaxed));
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Tauri 命令
 // ---------------------------------------------------------------------------
 
@@ -377,5 +447,12 @@ pub fn notify_hook_status() -> NotifyStatus {
 #[tauri::command(async)]
 pub fn notify_send_test() -> Result<NotifyTestResult, String> {
     send_test()
+}
+
+/// GUI 上报窗口可见性（聚焦 + 未隐藏）。立刻落盘一次，心跳线程随后续时间戳。
+#[tauri::command]
+pub fn set_notify_visibility(visible: bool) {
+    APP_VISIBLE.store(visible, Ordering::Relaxed);
+    write_presence_if_enabled(visible);
 }
 

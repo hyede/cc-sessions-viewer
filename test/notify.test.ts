@@ -23,6 +23,7 @@ describe('defaultNotifyConfig', () => {
     expect(d.agents).toEqual(['claude', 'codex'])
     expect(d.notifyDone).toBe(true)
     expect(d.notifyAttention).toBe(true)
+    expect(d.pushWhen).toBe('always')
   })
 })
 

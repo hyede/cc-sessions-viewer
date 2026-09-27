@@ -3783,6 +3783,7 @@ function onClearTabs() {
 const windowFocused = ref(document.hasFocus())
 async function onFocus() {
   windowFocused.value = true
+  syncNotifyVisibility()
   const activeTuiTab = currentActiveTab()
   if (activeTuiTab) markTabViewed(activeTuiTab.uiId)
   clearPendingLiveNotification()
@@ -3802,13 +3803,20 @@ async function onFocus() {
 }
 function onBlur() {
   windowFocused.value = false
+  syncNotifyVisibility()
 }
 function appVisible() {
   return windowFocused.value && document.visibilityState === 'visible'
 }
+// 把「窗口是否在看」上报给第三方推送后端（供 pushWhen=appHiddenOnly 判定）。
+// always 模式下后端直接忽略，故无条件上报即可。
+function syncNotifyVisibility() {
+  api.setNotifyVisibility(appVisible()).catch(() => {})
+}
 function onVisibilityChange() {
   if (document.visibilityState === 'visible') clearPendingLiveNotification()
   if (document.visibilityState === 'hidden') saveTabState()
+  syncNotifyVisibility()
 }
 
 function saveTabState() {
@@ -4068,6 +4076,7 @@ onMounted(() => {
   window.addEventListener('blur', onBlur)
   window.addEventListener('resize', onWindowResize)
   document.addEventListener('visibilitychange', onVisibilityChange)
+  syncNotifyVisibility()
   // 右键菜单的全局关闭：任意点击 / 滚轮 / ESC
   document.addEventListener('mousedown', (e) => {
     if (!ctxMenu.value) return

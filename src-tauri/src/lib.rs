@@ -2668,6 +2668,7 @@ pub fn run() {
             notify::uninstall_notify_hooks,
             notify::notify_hook_status,
             notify::notify_send_test,
+            notify::set_notify_visibility,
             tools::mcp::tools_scan_mcp,
             tools::mcp_write::tools_apply_mcp,
             tools::registry::tools_registry_search,
@@ -2809,6 +2810,9 @@ pub fn run() {
             // 不阻塞 setup —— init() 自己 spawn 后台线程，离线 / 失败时先用过期
             // 磁盘缓存兜着，前端按 pricing_status 渲染 error placeholder。
             stats::pricing::init();
+            // 第三方推送「仅 app 后台」模式的存活/可见性心跳。空转成本极低（always
+            // 模式不写盘），所以无条件起一个后台线程。
+            notify::spawn_presence_heartbeat();
             // 会话图片的磁盘缓存目录。要 AppHandle 才能定位数据目录，所以在这里解析一次
             // 存起来；解析不到就整体停用，图片照旧内联。
             image_cache::init(app.handle());
