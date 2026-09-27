@@ -609,6 +609,10 @@ export const saveMacosClipboardImage = () =>
 export const readMacosClipboardText = () =>
   invoke<string | null>('read_macos_clipboard_text')
 
+/** Write text to the native macOS pasteboard without WebView clipboard permissions. Returns false off macOS or on failure. */
+export const writeMacosClipboardText = (text: string) =>
+  invoke<boolean>('write_macos_clipboard_text', { text })
+
 /** 判断本地路径是否为目录（拖拽到输入框的附件可能是文件或文件夹，据此选图标 + 提示）。 */
 export const pathIsDir = (path: string) => invoke<boolean>('path_is_dir', { path })
 

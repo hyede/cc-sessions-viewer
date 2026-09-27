@@ -6,7 +6,7 @@ import {
   createTerminalImeInputDeduper,
   handleWindowsTerminalSelectionDelete,
   shouldBlinkTerminalCursor,
-  shouldCopyWindowsTerminalSelection,
+  shouldCopyTerminalSelection,
   shouldBufferTerminalImeSwitch,
   shouldUseBracketedImagePaste,
   shouldUseStableTerminalCursor,
@@ -67,20 +67,30 @@ describe('terminal keyboard handling', () => {
   })
 
   it('copies terminal selection on Windows Ctrl+C', () => {
-    expect(shouldCopyWindowsTerminalSelection(key(), true, 'Win32')).toBe(true)
+    expect(shouldCopyTerminalSelection(key(), true, 'Win32')).toBe(true)
+  })
+
+  it('copies terminal selection on macOS Cmd+C', () => {
+    expect(
+      shouldCopyTerminalSelection(key({ ctrlKey: false, metaKey: true }), true, 'MacIntel'),
+    ).toBe(true)
   })
 
   it('does not intercept Ctrl+C without a terminal selection', () => {
-    expect(shouldCopyWindowsTerminalSelection(key(), false, 'Win32')).toBe(false)
+    expect(shouldCopyTerminalSelection(key(), false, 'Win32')).toBe(false)
   })
 
-  it('does not intercept non-Windows Ctrl+C', () => {
-    expect(shouldCopyWindowsTerminalSelection(key(), true, 'MacIntel')).toBe(false)
+  it('keeps macOS Ctrl+C as SIGINT (only Cmd+C copies)', () => {
+    expect(shouldCopyTerminalSelection(key(), true, 'MacIntel')).toBe(false)
+  })
+
+  it('keeps Linux Ctrl+C as SIGINT (copy is Ctrl+Shift+C)', () => {
+    expect(shouldCopyTerminalSelection(key(), true, 'Linux x86_64')).toBe(false)
   })
 
   it('does not intercept modified or unrelated keys', () => {
-    expect(shouldCopyWindowsTerminalSelection(key({ shiftKey: true }), true, 'Win32')).toBe(false)
-    expect(shouldCopyWindowsTerminalSelection(key({ key: 'v' }), true, 'Win32')).toBe(false)
+    expect(shouldCopyTerminalSelection(key({ shiftKey: true }), true, 'Win32')).toBe(false)
+    expect(shouldCopyTerminalSelection(key({ key: 'v' }), true, 'Win32')).toBe(false)
   })
 
   it('recognizes Windows bare Shift as an IME switch only on Windows', () => {

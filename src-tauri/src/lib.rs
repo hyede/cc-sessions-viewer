@@ -1899,7 +1899,28 @@ fn read_macos_clipboard_text() -> Result<Option<String>, String> {
     }
 }
 
-/// 往上找第一个真实存在的祖先目录。
+/// Write plain text to the macOS pasteboard without requiring WebView clipboard
+/// permission (the browser Clipboard API is often denied in WKWebView). Returns
+/// `false` off macOS or when the pasteboard rejects the write.
+#[tauri::command]
+fn write_macos_clipboard_text(text: String) -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{NSPasteboard, NSPasteboardTypeString};
+        use objc2_foundation::NSString;
+
+        let pasteboard = NSPasteboard::generalPasteboard();
+        pasteboard.clearContents();
+        let value = NSString::from_str(&text);
+        Ok(pasteboard.setString_forType(&value, unsafe { NSPasteboardTypeString }))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = text;
+        Ok(false)
+    }
+}
 ///
 /// 存储面板里的目录可能压根还没被创建过（没存过附件、没缓存过图片），而 `open -R` 对着
 /// 一个不存在的路径是静默失败的 —— 按钮看着就像坏了。退到最近的祖先，至少能把人带到
@@ -2765,6 +2786,7 @@ pub fn run() {
             save_clipboard_image,
             save_macos_clipboard_image,
             read_macos_clipboard_text,
+            write_macos_clipboard_text,
             path_is_dir,
             git_current_branch,
             git_repository_state,

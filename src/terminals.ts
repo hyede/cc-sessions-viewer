@@ -93,21 +93,27 @@ type TerminalKeyEvent = Pick<
   'type' | 'key' | 'ctrlKey' | 'shiftKey' | 'altKey' | 'metaKey'
 >
 
-export function shouldCopyWindowsTerminalSelection(
+export function shouldCopyTerminalSelection(
   ev: TerminalKeyEvent,
   hasSelection: boolean,
   platform = navigator.platform,
 ): boolean {
-  return (
-    /Win/i.test(platform) &&
-    hasSelection &&
-    ev.type === 'keydown' &&
-    ev.key.toLowerCase() === 'c' &&
-    ev.ctrlKey &&
-    !ev.shiftKey &&
-    !ev.altKey &&
-    !ev.metaKey
-  )
+  // xterm keeps its own selection (not a native DOM selection), so the OS copy
+  // shortcut never captures it — we must intercept and copy it ourselves.
+  if (!hasSelection || ev.type !== 'keydown' || ev.key.toLowerCase() !== 'c') {
+    return false
+  }
+  if (ev.shiftKey || ev.altKey) return false
+  if (/Mac/i.test(platform)) {
+    // Cmd+C copies the selection; Ctrl+C stays SIGINT.
+    return ev.metaKey && !ev.ctrlKey
+  }
+  if (/Win/i.test(platform)) {
+    // Ctrl+C with a selection copies; without one it falls through to SIGINT.
+    return ev.ctrlKey && !ev.metaKey
+  }
+  // Linux keeps Ctrl+C as SIGINT (copy is Ctrl+Shift+C by convention); no hijack.
+  return false
 }
 
 export function shouldBlinkTerminalCursor(agent: Agent, platform = navigator.platform): boolean {
@@ -229,15 +235,25 @@ export function createTerminalImeInputDeduper() {
 }
 
 async function copyTerminalSelectionText(text: string) {
+  // macOS WKWebView often denies the browser Clipboard API even from a user
+  // gesture, so prefer the native pasteboard command (same reason the paste
+  // path reads via readMacosClipboardText).
+  if (_isMac) {
+    try {
+      if (await api.writeMacosClipboardText(text)) return
+    } catch {
+      /* Fall through to the browser clipboard below. */
+    }
+  }
   try {
     await navigator.clipboard?.writeText?.(text)
   } catch {
-    /* Clipboard write can be denied by the webview; still swallow Ctrl+C so it never kills the PTY. */
+    /* Clipboard write can be denied by the webview; still swallow the key so it never kills the PTY. */
   }
 }
 
-function handleWindowsTerminalSelectionCopy(term: Terminal, ev: KeyboardEvent): boolean {
-  if (!shouldCopyWindowsTerminalSelection(ev, term.hasSelection())) {
+function handleTerminalSelectionCopy(term: Terminal, ev: KeyboardEvent): boolean {
+  if (!shouldCopyTerminalSelection(ev, term.hasSelection())) {
     return false
   }
   ev.preventDefault()
@@ -1754,7 +1770,7 @@ export async function openOrFocusTui(opts: OpenTuiOptions): Promise<void> {
   })
   term.attachCustomKeyEventHandler((ev) => {
     if (ev.type === 'keydown' && shouldBufferTerminalImeSwitch(ev)) imeInputDeduper.onInputMethodSwitch()
-    if (handleWindowsTerminalSelectionCopy(term, ev)) return false
+    if (handleTerminalSelectionCopy(term, ev)) return false
     if (
       handleWindowsTerminalSelectionDelete(
         selectionDeleteTarget(term),
@@ -2014,7 +2030,7 @@ export async function openShellTab(opts: {
   const imeInputDeduper = createTerminalImeInputDeduper()
   term.attachCustomKeyEventHandler((ev) => {
     if (ev.type === 'keydown' && shouldBufferTerminalImeSwitch(ev)) imeInputDeduper.onInputMethodSwitch()
-    if (handleWindowsTerminalSelectionCopy(term, ev)) return false
+    if (handleTerminalSelectionCopy(term, ev)) return false
     if (ev.type !== 'keydown' || ev.altKey) return true
     const key = ev.key.toLowerCase()
 
